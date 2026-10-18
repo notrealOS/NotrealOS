@@ -113,7 +113,7 @@ class ListPage(Adw.NavigationPage):
         tv = Adw.ToolbarView()
         hb = Adw.HeaderBar(show_end_title_buttons=False)
         hb.add_css_class("vapor-bar")
-        hb.set_title_widget(label("CONTACTS", "app-title", 0.5, False))
+        hb.set_title_widget(label("NOTREAL.CONTACTS", "app-title", 0.5, False))
         tv.add_top_bar(hb)
 
         self.store = Gio.ListStore(item_type=Person)

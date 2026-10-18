@@ -313,7 +313,7 @@ class Window(Adw.ApplicationWindow):
         reset = Gtk.Button(icon_name="edit-undo-symbolic", css_classes=["flat"], tooltip_text="Reset all")
         reset.connect("clicked", lambda *_: self.reset())
         hb.pack_end(reset)
-        hb.set_title_widget(Gtk.Label(label="EDIT", css_classes=["app-title"]))
+        hb.set_title_widget(Gtk.Label(label="NOTREAL.EDIT", css_classes=["app-title"]))
         tv.add_top_bar(hb)
 
         body = Gtk.Box(orientation=Gtk.Orientation.VERTICAL)

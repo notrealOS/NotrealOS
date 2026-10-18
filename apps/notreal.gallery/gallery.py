@@ -293,7 +293,7 @@ class Window(Adw.ApplicationWindow):
         gear = Gtk.Button(icon_name="emblem-system-symbolic", tooltip_text="Settings")
         gear.connect("clicked", lambda *_: self.open_settings())
         hb.pack_start(gear)
-        title = Gtk.Label(label="GALLERY")
+        title = Gtk.Label(label="NOTREAL.GALLERY")
         title.add_css_class("app-title")
         hb.set_title_widget(title)
         tv.add_top_bar(hb)

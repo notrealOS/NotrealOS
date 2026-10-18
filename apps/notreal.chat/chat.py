@@ -468,7 +468,7 @@ class ChatList(Adw.NavigationPage):
         tv = Adw.ToolbarView()
         hb = Adw.HeaderBar(show_end_title_buttons=False)
         hb.add_css_class("vapor-bar")
-        self.title = label("CHATS", "app-title", xalign=0.5, ellipsize=False)
+        self.title = label("NOTREAL.CHAT", "app-title", xalign=0.5, ellipsize=False)
         hb.set_title_widget(self.title)
         self.back_btn = icon_button("go-previous-symbolic", "Back to chats", self._leave_special)
         self.back_btn.set_visible(False)
@@ -563,7 +563,7 @@ class ChatList(Adw.NavigationPage):
         special = self.archived_view or self.hidden_view
         self.back_btn.set_visible(special)
         self.search_btn.set_visible(not special)
-        self.title.set_label("ARCHIVED" if self.archived_view else "BRIDGES" if self.hidden_view else "CHATS")
+        self.title.set_label("ARCHIVED" if self.archived_view else "BRIDGES" if self.hidden_view else "NOTREAL.CHAT")
         chats = st.hidden_chats() if self.hidden_view else st.chats()
         chats = [c for c in chats if c["id"] not in self.pending]
         # chips: networks that have chats (unread count per net)

@@ -1266,7 +1266,7 @@ class HomePage(Adw.NavigationPage):
         tv = Adw.ToolbarView()
         hb = Adw.HeaderBar()
         hb.add_css_class("vapor-bar")
-        t = label("REDDIT", "app-title", xalign=0.5)
+        t = label("NOTREAL.FEED", "app-title", xalign=0.5)
         t.set_ellipsize(Pango.EllipsizeMode.NONE)
         hb.set_title_widget(t)
         refresh = Gtk.Button(icon_name="view-refresh-symbolic", tooltip_text="Refresh")

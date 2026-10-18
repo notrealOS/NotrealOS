@@ -1089,7 +1089,7 @@ class SetupPage(Gtk.Box):
                          margin_start=28, margin_end=28)
         self.win = win
         self.add_css_class("setup")
-        self.append(label("VAPORMAIL", "logo", xalign=0.5, ellipsize=False))
+        self.append(label("NOTREAL.MAIL", "logo", xalign=0.5, ellipsize=False))
         self.append(label("Gmail address + app password\n(myaccount.google.com/apppasswords)",
                           "setup-hint", xalign=0.5, ellipsize=False, wrap=True))
         cfg = gmail.load_config()
@@ -1191,7 +1191,7 @@ class Window(Adw.ApplicationWindow):
         tv = Adw.ToolbarView()
         hb = Adw.HeaderBar()
         hb.add_css_class("vapor-bar")
-        hb.set_title_widget(label("VAPORMAIL", "app-title", xalign=0.5, ellipsize=False))
+        hb.set_title_widget(label("NOTREAL.MAIL", "app-title", xalign=0.5, ellipsize=False))
         self.refresh_btn = Gtk.Button(icon_name="view-refresh-symbolic", tooltip_text="Fetch")
         self.refresh_btn.add_css_class("flat")
         self.refresh_btn.connect("clicked", lambda *_: self.refresh())

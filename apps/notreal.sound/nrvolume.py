@@ -55,7 +55,7 @@ class Window(Adw.ApplicationWindow):
 
         hb = Adw.HeaderBar()
         hb.add_css_class("vapor-bar")
-        t = Gtk.Label(label="SOUND")
+        t = Gtk.Label(label="NOTREAL.SOUND")
         t.add_css_class("app-title")
         hb.set_title_widget(t)
 

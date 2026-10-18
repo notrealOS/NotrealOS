@@ -386,7 +386,7 @@ class Window(Adw.ApplicationWindow):
         tv = Adw.ToolbarView()
         hb = Adw.HeaderBar(show_end_title_buttons=False)
         hb.add_css_class("vapor-bar")
-        hb.set_title_widget(label("PHONE", "app-title", 0.5, False))
+        hb.set_title_widget(label("NOTREAL.PHONE", "app-title", 0.5, False))
         tv.add_top_bar(hb)
         self.tabs = Adw.ViewStack()
         self.dialer = DialPage(self)

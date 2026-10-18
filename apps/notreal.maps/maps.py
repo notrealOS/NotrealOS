@@ -162,7 +162,7 @@ class SetupPage(Gtk.Box):
         super().__init__(orientation=Gtk.Orientation.VERTICAL, spacing=14)
         self.win = win
         self.add_css_class("setup")
-        self.append(label("NOTAREAL MAPS", "app-title", xalign=0.5))
+        self.append(label("NOTREAL.MAPS", "app-title", xalign=0.5))
         self.append(label(
             "Paste your Google Maps Platform API key.\n\n"
             "console.cloud.google.com → new project → enable Map Tiles API, Places API (New) "
