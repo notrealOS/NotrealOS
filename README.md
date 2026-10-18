@@ -35,10 +35,10 @@ All apps are Python + GTK4/libadwaita, sized for a phone, with the main controls
 
 ```
 apps/            the apps above
-shell/           joystick launcher, swipe keyboard, gestures, CRT screen animation, themes   (coming)
-system/          sleep, haptics, audio, backup and health-check daemons                      (coming)
-spacewar-fixes/  Nothing Phone (1) kernel/device-tree, camera (libcamera) and audio fixes    (coming)
-pc/              the home PC side: Tailscale link, LLM, voice, Matrix bridges, music server  (coming)
+shell/           joystick launcher, swipe keyboard, gestures, CRT screen animation, themes
+system/          voice assistant, alarms, sleep, health check, backup, haptics, Glyph
+spacewar-fixes/  Nothing Phone (1) device tree, drivers, libcamera, audio, calls, sleep
+pc/              the home PC side: AI gateway, voices, Matrix bridges, music, feed proxy
 docs/            how it all fits together
 tools/           stage.py (copy sources in), scan.py (privacy check, also a pre-commit hook)
 ```
@@ -54,7 +54,7 @@ voices for the voice assistant, the Reddit proxy and nightly backups. Set your P
 { "host": "100.x.y.z", "matrix": "https://your-pc.your-tailnet.ts.net" }
 ```
 
-The full setup is described in `docs/` and `pc/` (coming).
+How it all connects: [docs/pc-link.md](docs/pc-link.md). PC setup: [pc/README.md](pc/README.md).
 
 ## Contributing
 
