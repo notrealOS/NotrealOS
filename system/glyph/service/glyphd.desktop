@@ -1,0 +1,6 @@
+[Desktop Entry]
+Type=Application
+Name=Glyph daemon
+Exec=@HOME@/.local/bin/glyphd
+NoDisplay=true
+X-GNOME-Autostart-enabled=true

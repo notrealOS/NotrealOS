@@ -1,0 +1,27 @@
+#!/bin/sh
+HERE="$(dirname "$(readlink -f "$0")")"
+# Touch gestures (lisgd, started from autostart):
+#   one-finger swipe along the bottom edge, right to left -> next app
+#   one-finger swipe along the bottom edge, left to right -> previous app
+#   three-finger swipe down -> quit the Moonlight stream (only while Moonlight is focused)
+# lisgd is restarted if it exits, and also whenever the screen turns back on
+# (it sometimes stops firing after a wake, probably stale touch state).
+
+# Screen-on watcher: Mutter's PowerSaveMode goes back to 0 on wake.
+gdbus monitor --session --dest org.gnome.Mutter.DisplayConfig 2>/dev/null |
+while IFS= read -r line; do
+	case $line in
+	*"'PowerSaveMode': <0>"*)
+		[ -f "$XDG_RUNTIME_DIR/lisgd.pid" ] && kill "$(cat "$XDG_RUNTIME_DIR/lisgd.pid")" 2>/dev/null ;;
+	esac
+done &
+
+while :; do
+	lisgd -d /dev/input/by-path/platform-a94000.spi-event \
+		-g "1,RL,B,*,R,$HERE/appswitch next" \
+		-g "1,LR,B,*,R,$HERE/appswitch prev" \
+		-g "3,UD,*,*,R,$HERE/moonlight-quit" &
+	echo $! > "$XDG_RUNTIME_DIR/lisgd.pid"
+	wait $!
+	sleep 1
+done

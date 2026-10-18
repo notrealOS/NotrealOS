@@ -1,0 +1,5 @@
+#!/bin/sh
+HERE="$(dirname "$(readlink -f "$0")")"
+# 3-finger swipe down: quit the Moonlight stream (its own Ctrl+Alt+Shift+Q), only when it is focused.
+wlrctl toplevel find app_id:com.moonlight_stream.Moonlight state:active || exit 0
+exec $HERE/uinput-combo 29 56 42 16   # Ctrl Alt Shift Q

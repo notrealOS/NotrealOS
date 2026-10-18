@@ -1,0 +1,17 @@
+#!/bin/sh
+# ka5hid on|off: bind/unbind the FiiO KA5's HID (buttons) interface. Unbound, nothing
+# (not even the console kbd handler) holds it, so the KA5 can USB-suspend. Installed
+# root-owned in /usr/local/bin with a NOPASSWD sudoers entry for ~/ka5idle/ka5idle.py.
+case "$1" in on|off) ;; *) echo "usage: ka5hid on|off" >&2; exit 2 ;; esac
+for d in /sys/bus/usb/devices/*; do
+  [ -f "$d/idVendor" ] && [ "$(cat "$d/idVendor"):$(cat "$d/idProduct")" = "2972:0055" ] || continue
+  for i in "$d/${d##*/}":*; do
+    [ "$(cat "$i/bInterfaceClass" 2>/dev/null)" = 03 ] || continue
+    if [ "$1" = off ]; then
+      [ -e "$i/driver" ] && echo "${i##*/}" > /sys/bus/usb/drivers/usbhid/unbind
+    else
+      [ -e "$i/driver" ] || echo "${i##*/}" > /sys/bus/usb/drivers/usbhid/bind
+    fi
+  done
+done
+exit 0

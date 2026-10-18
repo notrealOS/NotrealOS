@@ -1,0 +1,16 @@
+#!/bin/sh
+HERE="$(dirname "$(readlink -f "$0")")"
+# gtk4-layer-shell must be loaded before libwayland-client when used from Python
+export LD_PRELOAD="/usr/lib/libgtk4-layer-shell.so.0${LD_PRELOAD:+:$LD_PRELOAD}"
+# debug log (10-12, drawer bug hunt)
+export OVW_DEBUG=1
+# 10-12: a GPU fault (hangcheck recover) left the Vulkan renderer DEVICE_LOST = frozen widget/app list
+# 10-13: GL (ngl) then segfaulted twice inside libgallium -> software rendering for this small panel
+export GSK_RENDERER=cairo
+LOG="${XDG_RUNTIME_DIR:-/tmp}/overview-widget.log"
+# respawn after a crash (segfault/abort), not after a normal exit or kill
+while :; do
+    python3 $HERE/overview-widget.py "$@" >>"$LOG" 2>&1
+    rc=$?
+    case $rc in 134|139) echo "$(date +%T) widget crashed (rc=$rc), restarting" >>"$LOG"; sleep 2 ;; *) exit $rc ;; esac
+done

@@ -1,0 +1,9 @@
+[Desktop Entry]
+Type=Application
+Name=Glyph Ambient
+Comment=Random slow Glyph fades on or off
+Exec=gdbus call --session -d org.notarealinux.Glyph -o /org/notarealinux/Glyph -m org.notarealinux.Glyph.ToggleAmbient
+Icon=starred-symbolic
+Terminal=false
+Categories=Utility;
+X-Purism-FormFactor=Workstation;Mobile;

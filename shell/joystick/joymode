@@ -1,0 +1,3 @@
+#!/bin/sh
+# joymode float|ring : pick the overview joystick style (applies the next time the overview opens)
+case $1 in float|ring) echo "$1" > ~/.config/joystick-mode ;; *) cat ~/.config/joystick-mode 2>/dev/null || echo float ;; esac

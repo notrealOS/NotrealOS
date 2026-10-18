@@ -1,0 +1,9 @@
+#!/bin/sh
+HERE="$(dirname "$(readlink -f "$0")")"
+# Autostart wrapper for the thumb-arc launcher; restarts it if it exits.
+export LD_PRELOAD="/usr/lib/libgtk4-layer-shell.so.0${LD_PRELOAD:+:$LD_PRELOAD}"
+log="${XDG_RUNTIME_DIR:-/tmp}/arc.log"
+while :; do
+	python3 $HERE/arc.py >>"$log" 2>&1
+	sleep 2
+done
