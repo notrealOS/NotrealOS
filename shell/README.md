@@ -1,5 +1,11 @@
 # Shell
 
+<p>
+<img src="../docs/screenshots/real-overview-joystick.png" width="240" alt="Overview with the joystick">
+<img src="../docs/screenshots/real-search-reminders.png" width="240" alt="Search with reminders and notes">
+<img src="../docs/screenshots/real-overview-ram.png" width="240" alt="Overview widget RAM view">
+</p>
+
 Everything that replaces or sits on top of the Phosh shell. Each part runs as a small user
 daemon started from `~/.config/autostart`, and most have a `*-loop` wrapper that restarts them.
 
@@ -12,9 +18,9 @@ ln -s ~/notrealOS/shell/joystick ~/arc     # and so on, per the table
 
 | Repo folder | Install as | What it is |
 | --- | --- | --- |
-| [`phantomshell/`](phantomshell) | `~/.local/share/phantomshell` | **notarealShell**: the animated wallpaper layer, the SEARCH pop-up with reminders and notes, theme-drawn backgrounds |
-| [`overview-widget/`](overview-widget) | `~/overview-widget` | The tappable widget over the Phosh overview: clock, music, health face (tap = system check), theme picker. `toplevel-watch.c` reports open windows |
-| [`joystick/`](joystick) | `~/arc` | The app launcher that replaces the app grid: a pulsing joystick; hold it and the most-used apps appear in rings under your thumb (`joymode ring` for the classic ring) |
+| [`phantomshell/`](phantomshell) | `~/.local/share/phantomshell` | **notarealShell**: the wallpaper layer and the SEARCH pop-up with **reminders** and **notes** ([details](phantomshell/README.md)) |
+| [`overview-widget/`](overview-widget) | `~/overview-widget` | The widget over the Phosh overview: weather, theme picker, RAM, health face, now playing, agenda ([details](overview-widget/README.md)) |
+| [`joystick/`](joystick) | `~/arc` | The **joystick launcher** that replaces the app grid: hold it and your most-used apps fan out under your thumb ([details](joystick/README.md)) |
 | [`keyboard/`](keyboard) | `~/swipe` | Swipe keyboard (glide typing) with suggestions, user words, emoji, and 🎤 voice typing via whisper. `swipe-im.c` is the Wayland input-method helper |
 | [`gestures/`](gestures) | `~/gestures` | Bottom-edge swipe to switch apps; three-finger swipe down quits a Moonlight stream |
 | [`crt/`](crt) | `~/crt` | CRT power-off/on animation when the screen sleeps and wakes; double-press power opens notreal.cam |

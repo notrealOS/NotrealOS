@@ -2,7 +2,9 @@
 
 The camera app: main, ultra-wide and selfie lenses on the Nothing Phone (1), 12 MP photos, tap to focus, an EV slider, video, and a FILM mode with film-stock looks.
 
-> No screenshot yet: the camera needs the real sensor, and a photo of the viewfinder would show the author's surroundings.
+<p><img src="../../docs/screenshots/real-camera.png" width="300" alt="notreal.cam with the PORTRA film look"></p>
+
+*Real phone: FILM mode (Portra 35 mm), EV −3, pointed at an iPad. The last-photo thumbnail and a username are blacked out.*
 
 ## Features
 
