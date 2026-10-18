@@ -9,6 +9,15 @@ The apps, the shell and the hardware fixes in this repo were built together with
 > **Experimental.** This is one person's daily phone, not a finished distribution.
 > Expect rough edges, and don't flash anything you can't restore.
 
+<p>
+<img src="docs/screenshots/chat.png" width="200" alt="notreal.chat">
+<img src="docs/screenshots/player-now-playing.png" width="200" alt="notreal.player">
+<img src="docs/screenshots/maps-routes.png" width="200" alt="notreal.maps">
+<img src="docs/screenshots/mail.png" width="200" alt="notreal.mail">
+</p>
+
+*All screenshots are taken in a sandbox with made-up data ([tools/shots](tools/shots)).*
+
 ## Apps
 
 All apps are Python + GTK4/libadwaita, sized for a phone, with the main controls on the left

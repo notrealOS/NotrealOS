@@ -13,6 +13,10 @@ and the music player (a vinyl in the vapor themes, a cassette in the others).
 | `alien` | Green-on-black CRT terminal |
 | `nasa` | Cassette futurism: putty whites, one orange, Michroma type, no outlines |
 
+<p><img src="../../docs/screenshots/theme-vapor.png" width="150" alt="vapor"> <img src="../../docs/screenshots/theme-vaporlight.png" width="150" alt="vaporlight"> <img src="../../docs/screenshots/theme-micro.png" width="150" alt="micro"> <img src="../../docs/screenshots/theme-microdark.png" width="150" alt="microdark"> <img src="../../docs/screenshots/theme-alien.png" width="150" alt="alien"> <img src="../../docs/screenshots/theme-nasa.png" width="150" alt="nasa"></p>
+
+*notreal.chat in vapor, vaporlight, micro, microdark, alien and nasa (made-up chats).*
+
 ## Install
 
 ```sh
