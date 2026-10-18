@@ -1,0 +1,55 @@
+#!/bin/sh
+# nrbackup: back the phone up to a data drive on the PC (restic over sftp/Tailscale).
+#   nrbackup          run now (system snapshot + home), then thin out old snapshots
+#   nrbackup status   last result
+# Repo: "ssh" and "backup_repo" in ~/.config/notreal/pc.json (sftp over Tailscale),
+# password ~/.config/nrbackup/password (keep a copy somewhere safe!). Restore steps: RESTORE.md.
+set -u
+pcconf() { python3 -c 'import json,os,sys; print(json.load(open(os.path.expanduser("~/.config/notreal/pc.json"))).get(sys.argv[1], ""))' "$1" 2>/dev/null; }
+PC=$(pcconf ssh)
+REPO=$(pcconf backup_repo)
+MNT="/$(echo "$REPO" | cut -d/ -f2)"   # the data drive the repo lives on: never fill the PC's system disk
+[ -n "$PC" ] && [ -n "$REPO" ] || { echo "set ssh and backup_repo in ~/.config/notreal/pc.json" >&2; exit 1; }
+export RESTIC_REPOSITORY="sftp:$PC:$REPO"
+export RESTIC_PASSWORD_FILE="$HOME/.config/nrbackup/password"
+STATE="$HOME/.local/state/nrbackup"
+STATUS="$STATE/status.json"
+LOG="$STATE/backup.log"
+mkdir -p "$STATE"
+
+if [ "${1:-}" = status ]; then
+	cat "$STATUS" 2>/dev/null || echo '{"ok": null, "msg": "never ran"}'
+	exit 0
+fi
+
+status() {  # ok msg
+	printf '{"ok": %s, "time": %s, "msg": "%s"}\n' "$1" "$(date +%s)" "$2" > "$STATUS.tmp" && mv "$STATUS.tmp" "$STATUS"
+}
+
+exec >> "$LOG" 2>&1
+echo "=== $(date '+%F %T') backup start"
+# the Storage drive must really be mounted, or we'd fill the PC's system disk
+if ! ssh -o ConnectTimeout=10 -o BatchMode=yes "$PC" "mountpoint -q '$MNT' && test -f '$REPO/config'"; then
+	echo "PC or Storage drive not available"
+	status false "PC or Storage drive not available"
+	exit 1
+fi
+sudo -n /usr/local/bin/nrbackup-system || echo "WARNING: system snapshot failed (run ~/backup/install.sh?)"
+nice -n 10 restic backup --one-file-system --tag phone --exclude-caches \
+	--exclude "$HOME/.cache" \
+	--exclude "$HOME/.local/share/Trash" \
+	--exclude "$HOME/core" --exclude "$HOME/*/core" \
+	--exclude "$HOME/.var/app/*/cache" \
+	--exclude "$HOME/.mozilla/firefox/*/cache2" \
+	--exclude "$HOME/.config/chromium/*/Cache" --exclude "$HOME/.config/chromium/*/Code Cache" \
+	--exclude "$XDG_RUNTIME_DIR" \
+	"$HOME"
+rc=$?
+if [ $rc -ne 0 ] && [ $rc -ne 3 ]; then   # 3 = some files unreadable, snapshot still made
+	status false "restic backup failed (rc $rc)"
+	exit 1
+fi
+restic forget --tag phone --keep-daily 7 --keep-weekly 4 --keep-monthly 6 --prune
+size=$(restic stats latest --json 2>/dev/null | sed -n 's/.*"total_size":\([0-9]*\).*/\1/p')
+status true "backed up $((${size:-0} / 1000000)) MB"
+echo "=== $(date '+%F %T') backup done"

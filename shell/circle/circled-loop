@@ -1,0 +1,17 @@
+#!/bin/sh
+HERE="$(dirname "$(readlink -f "$0")")"
+# Keeps circled running (autostart). If it dies the volume-down grab goes with it, so the
+# key goes back to Phosh until the restart.
+# A loop from the previous login survives logout (the runtime dir and its lock get recreated)
+# and its circled keeps the key grab, so a new login takes over: kill the old loop + circled.
+PIDF="$HOME/.cache/circled-loop.pid"
+old=$(cat "$PIDF" 2>/dev/null)
+if [ -n "$old" ] && [ "$old" != $$ ] && grep -q circled-loop "/proc/$old/cmdline" 2>/dev/null; then
+	pkill -P "$old" 2>/dev/null; kill "$old" 2>/dev/null
+fi
+for p in $(pgrep -f "^python3 $HERE/circled.py"); do kill "$p"; done
+echo $$ > "$PIDF"
+while :; do
+	$HERE/circled >> "${XDG_RUNTIME_DIR:-/tmp}/circled.log" 2>&1
+	sleep 2
+done

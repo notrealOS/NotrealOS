@@ -1,0 +1,98 @@
+#!/usr/bin/env python3
+"""swipekbd-session: gnome-session component wrapper for swipekbd (sm.puri.OSK0).
+
+sm.puri.OSK0 is a *required* component of the Phosh session: if it keeps dying,
+gnome-session ends the whole session. So this wrapper is the long-lived process
+gnome-session sees. It registers like Stevia does, keeps swipekbd running, and
+falls back to Stevia if swipekbd crashes 3 times within a minute.
+
+Undo the switch: rm ~/.local/share/applications/sm.puri.OSK0.desktop, then log out/in.
+"""
+import os, signal, sys, time
+from gi.repository import Gio, GLib
+
+HERE = os.path.dirname(os.path.abspath(__file__))
+KBD = [sys.executable, os.path.join(HERE, "swipekbd.py")]
+STEVIA = ["/usr/bin/phosh-osk-stevia", "--allow-replacement"]
+LOG = os.path.join(os.environ.get("XDG_RUNTIME_DIR", "/tmp"), "swipekbd.log")
+
+loop = GLib.MainLoop()
+child = None
+crashes = []
+fallback = False
+stopping = False
+
+
+def log(*a):
+    print(time.strftime("%H:%M:%S"), "swipekbd-session:", *a, file=sys.stderr, flush=True)
+
+
+def spawn():
+    global child
+    argv = STEVIA if fallback else KBD
+    launcher = Gio.SubprocessLauncher.new(Gio.SubprocessFlags.NONE)
+    launcher.unsetenv("DESKTOP_AUTOSTART_ID")  # the wrapper owns the session registration
+    log("starting", " ".join(argv))
+    child = launcher.spawnv(argv)
+    child.wait_async(None, on_exit)
+
+
+def on_exit(proc, res):
+    global fallback
+    proc.wait_finish(res)
+    if stopping:
+        return
+    now = time.monotonic()
+    crashes.append(now)
+    del crashes[:-3]
+    log("child exited", proc.get_exit_status() if proc.get_if_exited() else "by signal")
+    if not fallback and len(crashes) == 3 and now - crashes[0] < 60:
+        log("swipekbd keeps crashing: falling back to Stevia")
+        fallback = True
+    GLib.timeout_add(1000, lambda: spawn() or False)
+
+
+def stop():
+    global stopping
+    stopping = True
+    if child:
+        child.send_signal(signal.SIGTERM)
+    loop.quit()
+
+
+# ---- gnome-session client registration (like Stevia), so startup and logout are clean
+def register():
+    try:
+        bus = Gio.bus_get_sync(Gio.BusType.SESSION)
+        sm = Gio.DBusProxy.new_sync(bus, 0, None, "org.gnome.SessionManager",
+                                    "/org/gnome/SessionManager", "org.gnome.SessionManager")
+        path = sm.call_sync("RegisterClient",
+                            GLib.Variant("(ss)", ("sm.puri.OSK0", os.environ.get("DESKTOP_AUTOSTART_ID", ""))),
+                            0, -1, None).unpack()[0]
+    except GLib.Error as e:
+        log("no session registration:", e.message)
+        return
+    priv = Gio.DBusProxy.new_sync(bus, 0, None, "org.gnome.SessionManager", path,
+                                  "org.gnome.SessionManager.ClientPrivate")
+
+    def on_signal(p, sender, sig, params):
+        if sig in ("QueryEndSession", "EndSession"):
+            p.call_sync("EndSessionResponse", GLib.Variant("(bs)", (True, "")), 0, -1, None)
+        if sig in ("EndSession", "Stop"):
+            stop()
+
+    priv.connect("g-signal", on_signal)
+    register.keep = priv
+    log("registered as", path)
+
+
+# wrapper and keyboard both append to $XDG_RUNTIME_DIR/swipekbd.log
+_fd = os.open(LOG, os.O_WRONLY | os.O_CREAT | os.O_APPEND, 0o644)
+os.dup2(_fd, 2)
+os.close(_fd)
+
+for s in (signal.SIGTERM, signal.SIGINT):
+    GLib.unix_signal_add(GLib.PRIORITY_DEFAULT, s, lambda: stop() or False)
+register()
+spawn()
+loop.run()

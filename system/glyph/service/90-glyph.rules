@@ -1,0 +1,2 @@
+# Let the feedbackd group (the Phosh user is a member) drive the Glyph LEDs.
+SUBSYSTEM=="leds", KERNEL=="glyph:*", RUN+="/bin/chgrp feedbackd /sys%p/brightness", RUN+="/bin/chmod g+w /sys%p/brightness"

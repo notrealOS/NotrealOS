@@ -1,0 +1,9 @@
+[Desktop Entry]
+Type=Application
+Name=Glyph Torch
+Comment=Turn all Glyph lights on or off
+Exec=gdbus call --session -d org.notarealinux.Glyph -o /org/notarealinux/Glyph -m org.notarealinux.Glyph.ToggleTorch
+Icon=display-brightness-symbolic
+Terminal=false
+Categories=Utility;
+X-Purism-FormFactor=Workstation;Mobile;

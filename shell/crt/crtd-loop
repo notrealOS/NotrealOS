@@ -1,0 +1,8 @@
+#!/bin/sh
+HERE="$(dirname "$(readlink -f "$0")")"
+# Keeps crtd running (autostart). If it dies the power key grab goes with it, so the
+# key goes back to Phosh until the restart.
+while :; do
+	$HERE/crtd >> "${XDG_RUNTIME_DIR:-/tmp}/crtd.log" 2>&1
+	sleep 2
+done

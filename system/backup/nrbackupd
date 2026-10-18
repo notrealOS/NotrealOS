@@ -1,0 +1,33 @@
+#!/bin/sh
+# nrbackupd (autostart): runs nrbackup once a day, at night (01-06), while charging and on Wi-Fi.
+# If the last good backup is over 2 days old, any hour with charger + Wi-Fi will do.
+# sleepd never suspends on the charger, and the sleep lock covers the rest of the run.
+STATUS="$HOME/.local/state/nrbackup/status.json"
+LASTOK="$HOME/.local/state/nrbackup/last-ok"
+TRIED="$HOME/.local/state/nrbackup/last-try"
+mkdir -p "$HOME/.local/state/nrbackup"
+exec 9> "$HOME/.local/state/nrbackup/daemon.lock"
+flock -n 9 || exit 0
+
+charging() {
+	for s in /sys/class/power_supply/*/status; do
+		case "$(cat "$s" 2>/dev/null)" in Charging|Full) return 0;; esac
+	done
+	return 1
+}
+wifi() { nmcli -t -f TYPE,STATE device 2>/dev/null | grep -q '^wifi:connected'; }
+age() { [ -f "$1" ] && echo $(( $(date +%s) - $(stat -c %Y "$1") )) || echo 999999999; }
+
+while :; do
+	ok_age=$(age "$LASTOK"); try_age=$(age "$TRIED"); h=$(date +%-H)
+	if [ "$ok_age" -gt 72000 ] && [ "$try_age" -gt 3600 ] && charging && wifi; then
+		if { [ "$h" -ge 1 ] && [ "$h" -lt 6 ]; } || [ "$ok_age" -gt 172800 ]; then
+			touch "$TRIED"
+			if elogind-inhibit --what=sleep --mode=block --who=nrbackup --why="phone backup" \
+					"$HOME/backup/nrbackup"; then
+				touch "$LASTOK"
+			fi
+		fi
+	fi
+	sleep 900
+done

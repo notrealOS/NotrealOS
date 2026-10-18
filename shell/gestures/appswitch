@@ -1,0 +1,27 @@
+#!/bin/sh
+# Focus the next/previous open window (in the order wlrctl lists them, wrapping around).
+# Usage: appswitch next|prev
+list=$(wlrctl toplevel list) || exit 1
+n=$(printf '%s\n' "$list" | grep -c .)
+[ "$n" -lt 2 ] && exit 0
+
+# Index (1-based) of the focused window; 0 if none (e.g. the overview is open).
+cur=0 i=0
+while IFS= read -r line; do
+	i=$((i + 1))
+	if wlrctl toplevel find "app_id:${line%%: *}" "title:${line#*: }" state:active >/dev/null 2>&1; then
+		cur=$i
+		break
+	fi
+done <<EOT
+$list
+EOT
+
+case $1 in
+next) t=$(( cur % n + 1 )) ;;
+prev) t=$(( (cur + n - 2) % n + 1 )); [ $cur = 0 ] && t=$n ;;
+*) echo "usage: $0 next|prev" >&2; exit 1 ;;
+esac
+
+line=$(printf '%s\n' "$list" | sed -n "${t}p")
+wlrctl toplevel focus "app_id:${line%%: *}" "title:${line#*: }"

@@ -1,0 +1,33 @@
+#!/bin/sh
+# nrbackup-system (runs as root via sudo, installed to /usr/local/bin): collects the parts of the
+# system a fresh postmarketOS install wouldn't have, into a tarball the user-level backup picks up.
+#   /etc (PIN, sleep/audio/udev fixes, sudoers, VPN), /usr/local, /boot (kernel + DTB),
+#   /var/lib/bluetooth (pairings), /var/lib/tailscale (node identity),
+#   the package list, and every package file we changed or added in /usr /lib (libcamera r13,
+#   haptics module, firmware, yaml tunings...) as reported by `apk audit --system`.
+set -eu
+OUT="$(getent passwd "${SUDO_USER:-$(logname)}" | cut -d: -f6)"/.local/state/nrbackup/system
+install -d -o 10000 -g 10000 "$(dirname "$OUT")"
+mkdir -p "$OUT"
+cd "$OUT"
+cp /etc/apk/world world.txt
+apk info -v 2>/dev/null | sort > packages-versions.txt
+# A file = changed/added (U/A); directories (d) and removed (X) are only listed
+apk audit --system 2>/dev/null > audit.txt || true
+awk '$1 ~ /^[UA]$/ {print $2}' audit.txt | sed 's|^|/|' | while read -r f; do
+	[ -f "$f" ] && echo "$f"
+done > changed-files.txt
+{
+	echo /etc; echo /usr/local; echo /boot
+	[ -d /var/lib/bluetooth ] && echo /var/lib/bluetooth
+	[ -d /var/lib/tailscale ] && echo /var/lib/tailscale
+	ls -d /usr/lib/modules/*/extra 2>/dev/null          # own drivers: imx766, haptics, glyph LEDs
+	echo /usr/share/libcamera                           # camera tunings (imx471.yaml is hand-made)
+	ls /var/cache/apk/*.apk 2>/dev/null | grep -e 99990 -e local || true   # locally built packages
+	cat changed-files.txt
+} > list.txt
+tar -czf system.tar.gz.tmp -T list.txt 2>tar-errors.txt || true
+mv system.tar.gz.tmp system.tar.gz
+chown -R 10000:10000 "$OUT"
+chmod 700 "$OUT"
+echo "system: $(du -h system.tar.gz | cut -f1), $(wc -l < changed-files.txt) changed package files"

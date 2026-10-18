@@ -1,0 +1,20 @@
+/* Circle to search: follows the active notareal theme */
+window.circle-win { background: none; }
+.circle-top { padding: 4px 12px 4px 4px; border-radius: 999px; background: alpha(var(--nr-bg-deep), 0.85); }
+.circle-close { min-width: 40px; min-height: 40px; border-radius: 999px; background: alpha(var(--nr-fg), 0.08); }
+.circle-hint { font-family: var(--nr-font-code); font-size: 9pt; font-weight: 800; color: var(--nr-fg-bright); }
+.circle-sheet { padding: 12px; border-radius: 22px; background: var(--nr-bg);
+  box-shadow: 0 -6px 24px alpha(black, 0.35); }
+.circle-status { font-family: var(--nr-font-code); font-size: 8pt; font-weight: 800; color: var(--nr-accent); }
+.circle-text, .circle-text text { font-family: var(--nr-font-text); font-size: 11pt; border-radius: 12px;
+  background: alpha(var(--nr-fg), 0.06); color: var(--nr-fg-bright); }
+button.circle-chip { padding: 8px 12px; border-radius: 12px; font-family: var(--nr-font-code); font-size: 9pt;
+  font-weight: 800; background: alpha(var(--nr-fg), 0.08); color: var(--nr-fg-bright); }
+button.circle-chip.phone { background: alpha(var(--nr-mint), 0.22); }
+button.circle-chip.url, button.circle-chip.mail { background: alpha(var(--nr-primary), 0.22); }
+button.circle-chip.place { background: alpha(var(--nr-orange), 0.22); }
+button.circle-chip:active { background: alpha(var(--nr-accent), 0.4); }
+button.circle-ask { padding: 8px 16px; border-radius: 12px; font-family: var(--nr-font-code); font-weight: 800;
+  background: var(--nr-accent); color: var(--nr-bg); }
+.circle-answer { font-family: var(--nr-font-text); font-size: 11pt; padding: 8px; border-radius: 12px;
+  background: alpha(var(--nr-accent), 0.10); color: var(--nr-fg-bright); }

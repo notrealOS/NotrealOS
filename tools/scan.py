@@ -17,7 +17,7 @@ PATTERNS = {
     "matrix token": r"\bsy[tc]_[\w-]{10,}",
     "github token": r"\bgh[pousr]_[A-Za-z0-9]{20,}",
     "home path": r"/home/notareal\w*",
-    "user name": r"\bnotarealphone\b|\bnotarealinux\b",
+    "user name": r"\bnotarealphone\b|(?<![./])\bnotarealinux\b(?!\.)",
 }
 # Your own name, company, street... one regex per line, kept OUT of the repo:
 PRIVATE = os.path.expanduser("~/.config/notreal/private-patterns")

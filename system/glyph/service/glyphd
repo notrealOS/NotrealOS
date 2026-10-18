@@ -1,0 +1,370 @@
+#!/usr/bin/env python3
+"""glyphd: Nothing Phone (1) Glyph effects for Phosh.
+
+Drives /sys/class/leds/glyph:* (leds-aw21018). Layers, highest wins per LED:
+  torch      all Glyphs full on (toggle)
+  recording  red LED blinks while Snapshot is writing a video into ~/Videos/Camera
+  flash      one short pulse on screen lock and on every notification
+  ambient    random segments fading in and out smoothly (toggle)
+  pending    PENDING_LED breathes slowly while a message / mail / missed call / reminder is unread:
+             until its notification is dismissed or withdrawn, or its app is opened. Steady glow
+             while the phone sleeps (timers stop in s2idle).
+
+Session D-Bus API (org.notarealinux.Glyph, /org/notarealinux/Glyph):
+  ToggleTorch(), ToggleAmbient(), Flash()
+"""
+
+import math
+import os
+import random
+import sys
+import time
+
+import gi
+
+gi.require_version("Gio", "2.0")
+from gi.repository import Gio, GLib  # noqa: E402
+
+LED_DIR = "/sys/class/leds"
+MAX = 4095
+FPS = 30
+FLASH_PEAK = 3000
+FLASH_SECONDS = 0.7
+AMBIENT_PEAK = 1400
+CAMERA_DIR = os.path.expanduser("~/Videos/Camera")
+RECORDING_IDLE_SECONDS = 2.5
+PENDING_LED = "diagonal"            # messages, mail, missed calls
+REMINDER_LED = "camera"             # reminders (notarealShell)
+REMINDER_APPS = {"notarealshell"}
+PENDING_PEAK = 1600
+PENDING_PERIOD = 4.0      # s per breath
+PENDING_FPS = 10          # plenty for a slow breath, cheap
+PENDING_SLEEP_LEVEL = 500 # steady glow while suspended
+PENDING_MAX_S = 12 * 3600 # never breathe longer than this for one notification
+# notification senders that leave the light breathing: fdo app_name (lowercase) -> app id to clear on
+# focus, and GTK (GNotification) app ids. Everything else (voice, alarm, toasts) only flashes.
+FDO_PENDING = {"vapormail": "dev.notareal.VaporMail", "karere": "io.github.tobagin.karere",
+               "notarealshell": None, "chats": "sm.puri.Chatty", "chatty": "sm.puri.Chatty",
+               "calls": "org.gnome.Calls"}
+GTK_PENDING = {"sm.puri.chatty", "org.gnome.calls", "dev.notareal.vapormail", "io.github.tobagin.karere"}
+TOPLEVEL_WATCH = os.path.expanduser("~/overview-widget/toplevel-watch")
+
+BUS_NAME = "org.notarealinux.Glyph"
+OBJ_PATH = "/org/notarealinux/Glyph"
+IFACE_XML = """
+<node>
+  <interface name="org.notarealinux.Glyph">
+    <method name="ToggleTorch"/>
+    <method name="ToggleAmbient"/>
+    <method name="Flash"/>
+    <property name="Torch" type="b" access="read"/>
+    <property name="Ambient" type="b" access="read"/>
+  </interface>
+</node>
+"""
+
+
+class Glyphs:
+    def __init__(self):
+        self.leds = {}
+        for name in sorted(os.listdir(LED_DIR)):
+            if name.startswith("glyph:"):
+                self.leds[name[len("glyph:"):]] = open(
+                    os.path.join(LED_DIR, name, "brightness"), "w")
+        if not self.leds:
+            sys.exit("glyphd: no glyph:* LEDs found")
+        self.last = {}
+
+    def set(self, values):
+        for zone, f in self.leds.items():
+            v = max(0, min(MAX, int(values.get(zone, 0))))
+            if self.last.get(zone) != v:
+                f.seek(0)
+                f.write(str(v))
+                f.flush()
+                self.last[zone] = v
+
+
+class Daemon:
+    def __init__(self):
+        self.glyphs = Glyphs()
+        self.white = [z for z in self.glyphs.leds if z != "red"]
+        self.torch = False
+        self.ambient = False
+        self.flash_start = None
+        self.recording_file = None
+        self.recording_seen = 0.0
+        self.recording_size = -1
+        self.phase = {z: random.uniform(0, 2 * math.pi) for z in self.white}
+        self.speed = {z: self._random_speed() for z in self.white}
+        self.peak = {z: self._random_peak() for z in self.white}
+        self.tick_id = 0
+        self.monitors = []
+        self.pending = {}         # key -> app id that clears it on focus (or None)
+        self.calls = {}           # Notify call serial -> (app_name, desktop id), until the reply
+        self.sleeping = False
+
+    # --- animation -------------------------------------------------------
+
+    @staticmethod
+    def _random_speed():
+        # one full fade in + out every 2.5 to 7 seconds
+        return 2 * math.pi / random.uniform(2.5, 7.0)
+
+    @staticmethod
+    def _random_peak():
+        return random.choice((0, 0, AMBIENT_PEAK * 0.4, AMBIENT_PEAK * 0.7, AMBIENT_PEAK))
+
+    def _frame(self, now):
+        out = {}
+        if self.ambient:
+            dt = 1.0 / FPS
+            for z in self.white:
+                prev = self.phase[z]
+                self.phase[z] = (prev + self.speed[z] * dt) % (2 * math.pi)
+                if self.phase[z] < prev:  # a cycle ended: pick a new rhythm
+                    self.speed[z] = self._random_speed()
+                    self.peak[z] = self._random_peak()
+                out[z] = self.peak[z] * (0.5 - 0.5 * math.cos(self.phase[z]))
+        if self.flash_start is not None:
+            t = (now - self.flash_start) / FLASH_SECONDS
+            if t >= 1:
+                self.flash_start = None
+            else:
+                level = FLASH_PEAK * math.sin(math.pi * t)
+                for z in self.white:
+                    out[z] = max(out.get(z, 0), level)
+        if self.torch:
+            for z in self.white:
+                out[z] = MAX
+        if self.recording_file and (now - self.recording_start) % 1.0 < 0.5:
+            out["red"] = 2000  # blink: 0.5 s on, 0.5 s off
+        if self.pending and int(now) % 60 == 0:      # forgotten for PENDING_MAX_S: let it go
+            old = time.time() - PENDING_MAX_S
+            for k in [k for k, (_a, t, _l) in self.pending.items() if t < old]:
+                del self.pending[k]
+        if self.pending:
+            if self.sleeping:
+                level = PENDING_SLEEP_LEVEL
+            else:
+                level = PENDING_PEAK * (0.5 - 0.5 * math.cos(2 * math.pi * now / PENDING_PERIOD))
+            for led in {v[2] for v in self.pending.values()}:
+                out[led] = max(out.get(led, 0), level)
+        return out
+
+    def _animating(self):
+        return (self.ambient or self.flash_start is not None or self.recording_file is not None
+                or bool(self.pending and not self.sleeping))
+
+    def _fast(self):
+        return self.ambient or self.flash_start is not None or self.recording_file is not None
+
+    def update(self):
+        self.glyphs.set(self._frame(time.monotonic()))
+        if self._animating() and not self.tick_id:
+            self.tick_id = GLib.timeout_add(1000 // (FPS if self._fast() else PENDING_FPS), self._tick)
+
+    def _tick(self):
+        self.glyphs.set(self._frame(time.monotonic()))
+        self.tick_id = 0
+        if self._animating():               # re-arm at the rate the current layers need
+            self.tick_id = GLib.timeout_add(1000 // (FPS if self._fast() else PENDING_FPS), self._tick)
+        return GLib.SOURCE_REMOVE
+
+    def flash(self):
+        self.flash_start = time.monotonic()
+        self.update()
+
+    # --- D-Bus API -------------------------------------------------------
+
+    def _on_method(self, conn, sender, path, iface, method, params, invocation):
+        if method == "ToggleTorch":
+            self.torch = not self.torch
+        elif method == "ToggleAmbient":
+            self.ambient = not self.ambient
+        elif method == "Flash":
+            self.flash()
+        self.update()
+        invocation.return_value(None)
+
+    def _on_get_property(self, conn, sender, path, iface, prop):
+        return GLib.Variant("b", self.torch if prop == "Torch" else self.ambient)
+
+    # --- event sources ---------------------------------------------------
+
+    def _on_screensaver(self, conn, sender, path, iface, signal, params):
+        if params.unpack()[0]:  # screen locked / blanked
+            self.flash()
+
+    def _watch_notifications(self):
+        """Become a D-Bus monitor for notifications: flash on every one, track the ones that
+        should keep the light breathing (fdo Notify + its reply id, NotificationClosed,
+        ActionInvoked; GTK AddNotification / RemoveNotification)."""
+        bus = Gio.bus_get_sync(Gio.BusType.SESSION, None)
+        owner = bus.call_sync("org.freedesktop.DBus", "/org/freedesktop/DBus", "org.freedesktop.DBus",
+                              "GetNameOwner", GLib.Variant("(s)", ("org.freedesktop.Notifications",)),
+                              None, Gio.DBusCallFlags.NONE, 2000, None).unpack()[0]
+        addr = Gio.dbus_address_get_for_bus_sync(Gio.BusType.SESSION, None)
+        self.mon = Gio.DBusConnection.new_for_address_sync(
+            addr, Gio.DBusConnectionFlags.AUTHENTICATION_CLIENT | Gio.DBusConnectionFlags.MESSAGE_BUS_CONNECTION,
+            None, None)
+        rules = ["type='method_call',interface='org.freedesktop.Notifications',member='Notify'",
+                 "type='method_return',sender='%s'" % owner,
+                 "type='signal',interface='org.freedesktop.Notifications'",
+                 "type='method_call',interface='org.gtk.Notifications'"]
+        self.mon.call_sync("org.freedesktop.DBus", "/org/freedesktop/DBus", "org.freedesktop.DBus.Monitoring",
+                           "BecomeMonitor", GLib.Variant("(asu)", (rules, 0)), None,
+                           Gio.DBusCallFlags.NONE, 2000, None)
+        # only after the reply above: the filter swallows everything (a monitor must never answer)
+        self.mon.add_filter(self._on_bus_message)
+        # Phosh restarted: the reply rule names its old unique name -> monitor again
+        bus.signal_subscribe("org.freedesktop.DBus", "org.freedesktop.DBus", "NameOwnerChanged",
+                             "/org/freedesktop/DBus", "org.freedesktop.Notifications",
+                             Gio.DBusSignalFlags.NONE, lambda *a: GLib.timeout_add_seconds(2, self._rewatch))
+
+    def _rewatch(self):
+        try:
+            self.mon.close_sync(None)
+        except GLib.Error:
+            pass
+        try:
+            self._watch_notifications()
+        except GLib.Error as err:
+            print(f"glyphd: re-watch failed: {err.message}", file=sys.stderr)
+        return False
+
+    def _on_bus_message(self, _conn, msg, _incoming):
+        """GDBus worker thread: pick out what we need, handle it on the main loop."""
+        try:
+            t, member, iface = msg.get_message_type(), msg.get_member(), msg.get_interface()
+            body = msg.get_body()
+            args = body.unpack() if body is not None else ()
+            if t == Gio.DBusMessageType.METHOD_CALL and member == "Notify":
+                hints = args[6] if len(args) > 6 else {}
+                GLib.idle_add(self._notify_call, (msg.get_sender(), msg.get_serial()), args[0],
+                              hints.get("desktop-entry", ""))
+            elif t == Gio.DBusMessageType.METHOD_RETURN and args and isinstance(args[0], int):
+                GLib.idle_add(self._notify_reply, (msg.get_destination(), msg.get_reply_serial()), args[0])
+            elif t == Gio.DBusMessageType.SIGNAL and member == "NotificationClosed":
+                GLib.idle_add(self._closed, "fdo:%d" % args[0], args[1])
+            elif t == Gio.DBusMessageType.SIGNAL and member == "ActionInvoked":
+                GLib.idle_add(self._closed, "fdo:%d" % args[0], 2)
+            elif iface == "org.gtk.Notifications" and member == "AddNotification":
+                GLib.idle_add(self._gtk_add, args[0], args[1])
+            elif iface == "org.gtk.Notifications" and member == "RemoveNotification":
+                GLib.idle_add(self._closed, "gtk:%s:%s" % (args[0], args[1]), 3)
+        except Exception as e:  # noqa: BLE001  never let a weird message kill the monitor
+            print("glyphd: monitor:", e, file=sys.stderr)
+        return None              # monitors only observe
+
+    def _notify_call(self, serial, app_name, desktop):
+        self.flash()
+        a = (app_name or "").lower()
+        if a in FDO_PENDING:
+            led = REMINDER_LED if a in REMINDER_APPS else PENDING_LED
+            self.calls[serial] = (FDO_PENDING[a] or (desktop or None), led)
+        return False
+
+    def _notify_reply(self, reply_serial, nid):
+        if reply_serial in self.calls:
+            app, led = self.calls.pop(reply_serial)
+            self.pending["fdo:%d" % nid] = (app, time.time(), led)
+            self.update()
+        return False
+
+    def _gtk_add(self, app_id, nid):
+        self.flash()
+        if app_id.lower() in GTK_PENDING:
+            self.pending["gtk:%s:%s" % (app_id, nid)] = (app_id, time.time(), PENDING_LED)
+            self.update()
+        return False
+
+    def _closed(self, key, reason):
+        # 1 = expired (the banner timed out, still unread) keeps it; dismissed / closed / clicked clear
+        # ...unless nothing could clear it later (no app to open, e.g. a reminder)
+        if key in self.pending and (reason != 1 or not self.pending[key][0]):
+            del self.pending[key]
+            self.update()
+        return False
+
+    def _watch_focus(self):
+        """Opening the app counts as reading: clear its pending notifications."""
+        if not os.access(TOPLEVEL_WATCH, os.X_OK):
+            return
+        proc = Gio.Subprocess.new([TOPLEVEL_WATCH], Gio.SubprocessFlags.STDOUT_PIPE)
+        stream = Gio.DataInputStream.new(proc.get_stdout_pipe())
+
+        def on_line(src, res):
+            line, _ = src.read_line_finish_utf8(res)
+            if line is None:
+                return
+            if line.startswith("active "):
+                app = line[7:].strip().lower()
+                gone = [k for k, (v, _t, _l) in self.pending.items() if v and v.lower() == app]
+                for k in gone:
+                    del self.pending[k]
+                if gone:
+                    self.update()
+            src.read_line_async(GLib.PRIORITY_DEFAULT, None, on_line)
+        stream.read_line_async(GLib.PRIORITY_DEFAULT, None, on_line)
+        self.focus_proc = proc
+
+    def _on_sleep(self, _c, _s, _p, _i, _sig, params):
+        self.sleeping = params.unpack()[0]   # going to sleep: steady glow, no timers
+        self.update()
+
+    def _on_camera_dir(self, monitor, file, other, event):
+        if event == Gio.FileMonitorEvent.CREATED and file.get_basename().endswith(".mp4"):
+            self.recording_file = file.get_path()
+            self.recording_start = self.recording_seen = time.monotonic()
+            self.recording_size = -1
+            self.update()
+            GLib.timeout_add(500, self._poll_recording)
+
+    def _poll_recording(self):
+        """Red stays on while the newest video keeps growing."""
+        try:
+            size = os.path.getsize(self.recording_file)
+        except OSError:
+            size = -1
+        now = time.monotonic()
+        if size != self.recording_size:
+            self.recording_size = size
+            self.recording_seen = now
+        if size < 0 or now - self.recording_seen > RECORDING_IDLE_SECONDS:
+            self.recording_file = None
+            self.update()
+            return GLib.SOURCE_REMOVE
+        return GLib.SOURCE_CONTINUE
+
+    def run(self):
+        bus = Gio.bus_get_sync(Gio.BusType.SESSION, None)
+        node = Gio.DBusNodeInfo.new_for_xml(IFACE_XML)
+        bus.register_object(OBJ_PATH, node.interfaces[0], self._on_method,
+                            self._on_get_property, None)
+        Gio.bus_own_name_on_connection(bus, BUS_NAME, Gio.BusNameOwnerFlags.NONE,
+                                       None, None)
+        bus.signal_subscribe(None, "org.gnome.ScreenSaver", "ActiveChanged",
+                             "/org/gnome/ScreenSaver", None,
+                             Gio.DBusSignalFlags.NONE, self._on_screensaver)
+        try:
+            self._watch_notifications()
+        except GLib.Error as err:
+            print(f"glyphd: notification flashes disabled: {err.message}", file=sys.stderr)
+        self._watch_focus()
+        Gio.bus_get_sync(Gio.BusType.SYSTEM, None).signal_subscribe(
+            "org.freedesktop.login1", "org.freedesktop.login1.Manager", "PrepareForSleep",
+            "/org/freedesktop/login1", None, Gio.DBusSignalFlags.NONE, self._on_sleep)
+
+        os.makedirs(CAMERA_DIR, exist_ok=True)
+        cam = Gio.File.new_for_path(CAMERA_DIR).monitor_directory(
+            Gio.FileMonitorFlags.NONE, None)
+        cam.connect("changed", self._on_camera_dir)
+        self.monitors.append(cam)
+
+        self.update()
+        GLib.MainLoop().run()
+
+
+if __name__ == "__main__":
+    Daemon().run()

@@ -1,0 +1,3 @@
+# ka5idle (10-17): phoc/libinput must not hold the FiiO KA5's HID buttons open, or the KA5
+# (no remote wakeup) can never USB-suspend; ~/ka5idle/ka5idle.py opens them only while playing
+ACTION=="add|change", SUBSYSTEM=="input", KERNEL=="event*", ATTRS{idVendor}=="2972", ATTRS{idProduct}=="0055", ENV{LIBINPUT_IGNORE_DEVICE}="1"
