@@ -4,7 +4,8 @@
 
 - each app runs in a **headless phoc** at the Nothing Phone (1)'s size (1080×2400 at 2×)
 - with a **throwaway home folder**, its own **D-Bus session** and **no system bus** (so no modem,
-  network or power settings), a private silent **PulseAudio**, no portals and no GVFS
+  network or power settings), a private silent **PulseAudio**, no vibration/LED service
+  (feedbackd), no portals and no GVFS
 - `demo/<app>.py` fills the app with **made-up data** before it starts: fake mail, a chat database,
   a fake music server with generated covers, a fake Google Maps backend on OpenStreetMap tiles,
   fake feed posts, a fake call history, generated photos, fake calendars and contacts

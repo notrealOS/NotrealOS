@@ -21,7 +21,7 @@ ln -s ~/notrealOS/shell/joystick ~/arc     # and so on, per the table
 | [`phantomshell/`](phantomshell) | `~/.local/share/phantomshell` | **notarealShell**: the wallpaper layer and the SEARCH pop-up with **reminders** and **notes** ([details](phantomshell/README.md)) |
 | [`overview-widget/`](overview-widget) | `~/overview-widget` | The widget over the Phosh overview: weather, theme picker, RAM, health face, now playing, agenda ([details](overview-widget/README.md)) |
 | [`joystick/`](joystick) | `~/arc` | The **joystick launcher** that replaces the app grid: hold it and your most-used apps fan out under your thumb ([details](joystick/README.md)) |
-| [`keyboard/`](keyboard) | `~/swipe` | Swipe keyboard (glide typing) with suggestions, user words, emoji, and 🎤 voice typing via whisper. `swipe-im.c` is the Wayland input-method helper |
+| [`keyboard/`](keyboard) | `~/swipe` | Swipe keyboard (glide typing) with suggestions, user words, emoji, 🎤 voice typing via whisper, and 📋 **clipboard history** (your last 6 copies, tap to paste; kept in memory only, password-manager secrets skipped). `swipe-im.c` is the Wayland input-method helper |
 | [`gestures/`](gestures) | `~/gestures` | Bottom-edge swipe to switch apps; three-finger swipe down quits a Moonlight stream |
 | [`crt/`](crt) | `~/crt` | CRT power-off/on animation when the screen sleeps and wakes; double-press power opens notreal.cam |
 | [`rotated/`](rotated) | `~/rotated` | Auto-rotate that waits until you've really turned the phone (no flipping while lying down) |

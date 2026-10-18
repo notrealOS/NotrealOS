@@ -5,7 +5,7 @@ Replaces Stevia as sm.puri.OSK0. Left-handed: backspace sits left of Z, the best
 suggestion is the leftmost slot. Resize mode (⤢ in the suggestion bar) moves/scales
 the keyboard; settings live in ~/.config/swipekbd/settings.json per orientation.
 """
-import json, math, os, sys, time
+import base64, json, math, os, sys, time
 from ctypes import CDLL
 CDLL("libgtk4-layer-shell.so.0")  # must load before libwayland-client
 
@@ -172,6 +172,25 @@ KAOMOJI = [  # 11 per set: 4 + 4 + 3 wide keys
     ["ʕ•ᴥ•ʔ", "ʕっ•ᴥ•ʔっ", "(=^･ω･^=)", "ฅ^•ﻌ•^ฅ", "(ᵔᴥᵔ)", "U・ᴥ・U", "(・θ・)", "ヾ(・ω・)ノ",
      "(－_－) zzZ", "( ˘▽˘)っ♨", "(°)#))<<"],
 ]
+
+
+CLIP_MAX = 6   # clipboard history: in memory only (passwords get copied too), never saved
+
+
+def clip_label(text):
+    one = " ".join(text.split())
+    return one if len(one) <= 22 else one[:21] + "…"
+
+
+def clip_rows(clips):
+    """The last 6 copies as wide keys (newest top-left); ABC + CLEAR at the bottom."""
+    c = clips + [None] * (CLIP_MAX - len(clips))
+    rows = [[K(clip_label(t), (i % 2) * 5, 5, f"clip{r * 2 + i % 2}", "clip") for i, t in enumerate(c[r * 2:r * 2 + 2]) if t]
+            for r in range(3)]
+    if not clips:
+        rows[1] = [K("NOTHING COPIED YET", 0, 10, "noop", "sys")]
+    return rows + [[K("ABC", 0, 1.5, "abc", "sys"), K("CLEAR", 1.5, 2, "clipclear", "sys"),
+                    K("⏎", 8.5, 1.5, "enter", "enter")]]
 
 
 def emoji_tabs(kao_set=0):
@@ -352,6 +371,8 @@ class Keyboard(Gtk.Application):
         self.update_height()
         self.hold()
         self.start_helper()
+        self.clips = []
+        self.start_clipwatch()
         if os.environ.get("SWIPEKBD_NO_DBUS"):  # nested test compositor: leave the real OSK alone
             return
         Gio.bus_own_name(Gio.BusType.SESSION, "sm.puri.OSK0",
@@ -427,6 +448,44 @@ class Keyboard(Gtk.Application):
         self.h_out = Gio.DataInputStream.new(self.helper.get_stdout_pipe())
         self.h_out.read_line_async(GLib.PRIORITY_DEFAULT, None, self.on_line)
         self.helper.wait_async(None, self.on_helper_exit)
+
+    def start_clipwatch(self):
+        """wl-paste --watch runs clipwatch.sh on every copy: one line each (base64 text, or S = skip)."""
+        try:
+            self.cw = Gio.Subprocess.new(["wl-paste", "--watch", os.path.join(HERE, "clipwatch.sh")],
+                                         Gio.SubprocessFlags.STDOUT_PIPE | Gio.SubprocessFlags.STDERR_SILENCE)
+        except GLib.Error as e:
+            print("swipekbd: clipboard:", e.message, file=sys.stderr)
+            return
+        out = Gio.DataInputStream.new(self.cw.get_stdout_pipe())
+        out.read_line_async(GLib.PRIORITY_DEFAULT, None, self.on_clip)
+        self.cw.wait_async(None, lambda p, r: (p.wait_finish(r), GLib.timeout_add_seconds(5, self._restart_clipwatch)))
+
+    def _restart_clipwatch(self):
+        self.start_clipwatch()
+        return False
+
+    def on_clip(self, stream, res):
+        try:
+            line, _ = stream.read_line_finish_utf8(res)
+        except GLib.Error:
+            return
+        if line is None:
+            return
+        if line and line != "S":
+            try:
+                text = base64.b64decode(line).decode("utf-8")
+            except (ValueError, UnicodeDecodeError):
+                text = ""
+            if text.strip():
+                self.clips = ([text] + [c for c in self.clips if c != text])[:CLIP_MAX]
+                if self.layer == "clip":
+                    self.show_clips()
+        stream.read_line_async(GLib.PRIORITY_DEFAULT, None, self.on_clip)
+
+    def show_clips(self):
+        LAYERS["clip"] = clip_rows(self.clips)
+        self.set_layer("clip")
 
     def _retry_helper(self):
         self.start_helper()
@@ -639,6 +698,19 @@ class Keyboard(Gtk.Application):
     def action(self, act):
         if self.mods and act in ("bksp", "enter", " "):
             return self.mod_key({"bksp": KEY_BACKSPACE, "enter": KEY_ENTER, " ": 57}[act])
+        if act.startswith("clip") and act[4:].isdigit():
+            i = int(act[4:])
+            if i < len(self.clips):
+                self.commit(self.clips[i])
+                self.word, self.last_swipe = "", None
+                self.set_suggest([], None)
+            self.set_layer("abc")
+            return self.area.queue_draw()
+        if act == "clipclear":
+            self.clips = []
+            return self.show_clips()
+        if act == "noop":
+            return
         if act == "latch-ctrl":
             return self.toggle_mod(MOD_CTRL)
         if act == "latch-alt":
@@ -936,7 +1008,7 @@ class Keyboard(Gtk.Application):
         g = self.geom
         x0, w = g["kx"], g["kbw"]
         icon = self.bar_h * 1.1
-        names = ["hide"] if self.one_handed() else ["one", "rz", "hide"]
+        names = ["clip", "hide"] if self.one_handed() else ["clip", "one", "rz", "hide"]
         sw = (w - len(names) * icon) / 3
         slots = [(x0 + i * sw, sw) for i in range(3)]
         icons = [(n, x0 + 3 * sw + i * icon, icon) for i, n in enumerate(names)]
@@ -1026,7 +1098,13 @@ class Keyboard(Gtk.Application):
                     self.pick_suggestion(i)
             for name, ix, iw in icons:
                 if ix <= x < ix + iw:
-                    if name == "one":
+                    if name == "clip":
+                        if self.layer == "clip":
+                            self.set_layer("abc")
+                        else:
+                            self.show_clips()
+                        self.buzz()
+                    elif name == "one":
                         self.set_mode("one")
                         self.buzz()
                     elif name == "rz":
@@ -1395,7 +1473,10 @@ class Keyboard(Gtk.Application):
             self.text(snap, msg, slots[0][0], 0, sum(slots[-1]) - slots[0][0], self.bar_h, fs,
                       PINK if self.dictation.state == "recording" else CYAN)
         for name, ix, iw in icons:
-            if name == "one":
+            if name == "clip":
+                self.text(snap, "📋", ix, 0, iw, self.bar_h, fs, CYAN if self.layer == "clip" else LAV,
+                          1 if self.layer == "clip" else 0.6)
+            elif name == "one":
                 self.draw_one_icon(snap, ix + iw / 2, self.bar_h / 2, self.bar_h * 0.5)
             elif name == "rz":
                 self.text(snap, "⤢", ix, 0, iw, self.bar_h, fs, LAV, 1 if self.resize else 0.6)
@@ -1423,6 +1504,9 @@ class Keyboard(Gtk.Application):
                     alpha = 0.55 + 0.45 * abs(math.sin(time.monotonic() * 3))
                 elif k["act"] == "mic" and self.dictation.state == "working":
                     lab, col, alpha = "…", CYAN, 1.0
+            elif k["kind"] == "clip":   # clipboard history: a soft box per copy, smaller text
+                self.rfill(snap, LAV, 0.10, x + 4, y + 5, w - 8, h - 10, 8)
+                size -= 2
             elif k["kind"] == "enter":
                 col = CYAN
             elif k["kind"] == "space":
