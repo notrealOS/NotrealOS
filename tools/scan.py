@@ -25,6 +25,8 @@ if os.path.exists(PRIVATE):
     for i, l in enumerate(open(PRIVATE).read().splitlines()):
         if l.strip() and not l.startswith("#"):
             PATTERNS["private %d" % i] = l.strip()
+ALLOW_STRINGS = {l.strip() for l in open(os.path.join(REPO, "tools", "scan-allow.txt"))
+                 if l.strip() and not l.startswith("#")}
 ALLOW = re.compile(r"scan-ok")  # put "scan-ok" in a line comment to allow a reviewed hit
 
 
@@ -36,7 +38,7 @@ def main():
             dirs[:] = [d for d in dirs if d != ".git"]
             for f in files:
                 p = os.path.join(root, f)
-                if p == os.path.abspath(__file__) or f == "LICENSE":
+                if p == os.path.abspath(__file__) or f in ("LICENSE", "scan-allow.txt"):
                     continue
                 try:
                     lines = open(p, encoding="utf-8").read().splitlines()
@@ -47,6 +49,8 @@ def main():
                         continue
                     for kind, pat in PATTERNS.items():
                         for m in re.finditer(pat, line):
+                            if m.group(0) in ALLOW_STRINGS:
+                                continue
                             hits += 1
                             print(f"{os.path.relpath(p, REPO)}:{n}: [{kind}] {m.group(0)}")
     print(f"{hits} hit(s)", file=sys.stderr)

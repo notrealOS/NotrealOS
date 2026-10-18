@@ -1,0 +1,35 @@
+From: notrealOS <53965041+notrealdotmp4@users.noreply.github.com>
+Subject: [PATCH] ipa: simple: agc: Compensate the exposure target for AWB gains
+
+With all AWB gains >= 1.0 the image is brightened after the raw histogram
+was measured, so bright scenes came out overexposed.
+---
+--- a/src/ipa/simple/algorithms/agc.cpp	2026-10-10 16:36:04.726219273 +0200
++++ b/src/ipa/simple/algorithms/agc.cpp	2026-10-10 16:36:04.736593368 +0200
+@@ -70,7 +70,16 @@
+ 	int32_t &exposure = frameContext.sensor.exposure;
+ 	double &again = frameContext.sensor.gain;
+ 
+-	double error = kExposureOptimal - exposureMSV;
++	/*
++	 * The histogram is taken on raw data, but the AWB gains (all >= 1.0, see
++	 * awb.cpp) brighten the image afterwards by roughly the green gain. Aim
++	 * the raw exposure lower by that factor so the final image lands at the
++	 * optimal level instead of blowing out. With MSV ~ 0.5 + 5 * mean this
++	 * keeps 2.5 for a gain of 1.0.
++	 */
++	const float boost = std::clamp(context.activeState.awb.gains.g(), 1.0f, 4.0f);
++	const double target = 0.5 + (kExposureOptimal - 0.5) / boost;
++	double error = target - exposureMSV;
+ 
+ 	if (std::abs(error) <= kExposureSatisfactory)
+ 		return;
+@@ -119,7 +128,7 @@
+ 	context.activeState.agc.again = again;
+ 
+ 	LOG(IPASoftExposure, Debug)
+-		<< "exposureMSV " << exposureMSV
++		<< "exposureMSV " << exposureMSV << " target " << target
+ 		<< " error " << error << " factor " << factor
+ 		<< " exp " << exposure << " again " << again;
+ }

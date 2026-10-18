@@ -1,0 +1,77 @@
+From: notrealOS <53965041+notrealdotmp4@users.noreply.github.com>
+Subject: [PATCH] ipa: simple: agc: Continue from requested values and wait for changes to settle
+
+The IMX766 pulsed bright/dark: the hysteresis path sent the stale frame
+values back to the sensor, and decisions were taken on frames that did not
+show the previous change yet.
+---
+diff -urN a/src/ipa/simple/algorithms/agc.cpp libcamera-v0.7.2/src/ipa/simple/algorithms/agc.cpp
+--- a/src/ipa/simple/algorithms/agc.cpp	2026-10-14 13:46:47.374740531 +0200
++++ b/src/ipa/simple/algorithms/agc.cpp	2026-10-14 13:47:07.147477274 +0200
+@@ -73,6 +73,15 @@
+  */
+ static constexpr float kExpMaxStep = 0.15;
+ 
++/*
++ * Without a frame start event the controls attributed to a frame lag behind
++ * what the sensor really used, by about three stats updates (~12 frames).
++ * After a change, wait that long so the next decision measures the result
++ * of the previous one; otherwise the loop overshoots and the image pulses
++ * between bright and dark.
++ */
++static constexpr unsigned int kSettleUpdates = 3;
++
+ Agc::Agc()
+ {
+ }
+@@ -102,6 +111,18 @@
+ 	double &again = frameContext.sensor.gain;
+ 
+ 	/*
++	 * Always continue from the last requested values. The frame's own
++	 * values are stale, and sending them back would undo recent changes.
++	 */
++	exposure = context.activeState.agc.exposure;
++	again = context.activeState.agc.again;
++
++	if (holdoff_ > 0) {
++		holdoff_--;
++		return;
++	}
++
++	/*
+ 	 * The histogram is taken on raw data, but the AWB gains (all >= 1.0, see
+ 	 * awb.cpp) brighten the image afterwards by roughly the green gain. Aim
+ 	 * the raw exposure lower by that factor so the final image lands at the
+@@ -175,6 +196,10 @@
+ 	again = std::clamp(again, context.configuration.agc.againMin,
+ 			   context.configuration.agc.againMax);
+ 
++	if (exposure != context.activeState.agc.exposure ||
++	    again != context.activeState.agc.again)
++		holdoff_ = kSettleUpdates;
++
+ 	context.activeState.agc.exposure = exposure;
+ 	context.activeState.agc.again = again;
+ 
+@@ -204,6 +229,7 @@
+ 		context.activeState.agc.exposure = frameContext.sensor.exposure;
+ 		context.activeState.agc.again = frameContext.sensor.gain;
+ 		context.activeState.agc.valid = true;
++		holdoff_ = 0;
+ 	}
+ 
+ 	if (!stats->valid) {
+diff -urN a/src/ipa/simple/algorithms/agc.h libcamera-v0.7.2/src/ipa/simple/algorithms/agc.h
+--- a/src/ipa/simple/algorithms/agc.h	2026-10-14 13:46:47.374740531 +0200
++++ b/src/ipa/simple/algorithms/agc.h	2026-10-14 13:47:07.147340466 +0200
+@@ -27,6 +27,9 @@
+ private:
+ 	void updateExposure(IPAContext &context, IPAFrameContext &frameContext,
+ 			    double exposureMSV, double highShare);
++
++	/* Stats updates to skip until the last change shows up in the frames. */
++	unsigned int holdoff_ = 0;
+ };
+ 
+ } /* namespace ipa::soft::algorithms */

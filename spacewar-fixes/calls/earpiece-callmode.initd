@@ -1,0 +1,12 @@
+#!/sbin/openrc-run
+
+name="earpiece-callmode"
+description="Route call audio to the earpiece (Nothing Phone 1)"
+
+command="/usr/local/sbin/earpiece-callmode"
+command_args="${GAIN_MIN:-30} ${GAIN_MAX:-190} ${USER_DIR:-/run/user/10000/callmode} ${VOIP_GAIN:-100} ${MEDIA_GAIN:-190}"
+supervisor=supervise-daemon
+
+depend() {
+	after alsa q6voiced
+}

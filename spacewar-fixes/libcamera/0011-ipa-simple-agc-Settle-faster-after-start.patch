@@ -1,0 +1,35 @@
+From: notrealOS <53965041+notrealdotmp4@users.noreply.github.com>
+Subject: [PATCH] ipa: simple: agc: Settle faster after start and protect highlights harder
+
+Starting at max gain in daylight took ~3 s to get close and ~10 s to settle,
+so early photos were overexposed.
+---
+--- a/src/ipa/simple/algorithms/agc.cpp
++++ b/src/ipa/simple/algorithms/agc.cpp
+@@ -91,7 +91,7 @@
+ 	double target = 0.5 + (kExposureTarget - 0.5) / boost;
+ 	if (highShare > kHighlightShare)
+ 		target = std::max<double>(kExposureTargetMin,
+-					  target - (highShare - kHighlightShare) * 3.0);
++					  target - (highShare - kHighlightShare) * 5.0);
+ 	double error = target - exposureMSV;
+ 
+ 	if (std::abs(error) <= kExposureSatisfactory)
+@@ -109,7 +109,16 @@
+ 	 * out blown. Use the MSV ratio (MSV ~ 0.5 + 5 * mean), damped and clamped.
+ 	 */
+ 	const double ratio = (target - 0.5) / std::max(exposureMSV - 0.5, 0.05);
+-	float factor = std::clamp(static_cast<float>(std::pow(ratio, 0.7)), 0.5f, 1.6f);
++	/*
++	 * Far from the target take the full ratio so a camera opened in daylight
++	 * at max gain settles in about a second; damp only the last steps.
++	 * With much of the frame in the top bin the MSV underestimates how
++	 * overexposed it is, so cut harder.
++	 */
++	const double damp = std::abs(error) > 0.5 ? 1.0 : 0.8;
++	float factor = std::clamp(static_cast<float>(std::pow(ratio, damp)), 0.25f, 2.0f);
++	if (highShare > 0.4)
++		factor = std::min(factor, 0.25f);
+ 
+ 	if (factor > 1.0f) {
+ 		/* Scene too dark: increase exposure first, then gain. */

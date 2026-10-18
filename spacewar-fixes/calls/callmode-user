@@ -1,0 +1,133 @@
+#!/bin/sh
+# User-session half of earpiece-callmode (runs as the user, started from autostart).
+# Writes what the root service can't see by itself to $XDG_RUNTIME_DIR/callmode:
+#   speaker  1/0 - the speaker button in GNOME Calls (EnableSpeaker on callaudiod;
+#                  callaudiod can't switch anything itself here, we only listen)
+#   volume   0-100 - PulseAudio sink volume while a call is active (the volume keys)
+#   voip     1/0 - a VoIP call (WhatsApp/Karere etc.) is on the internal speaker:
+#                  one app records from the internal mic and plays to the internal
+#                  speaker at the same time. Its audio goes through PulseAudio, so
+#                  the volume keys work as usual and the root side uses a fixed gain.
+# Calls get their own volume: it is saved in ~/.config/callmode-volume and swapped
+# with the music volume when a call starts and ends.
+
+D=${XDG_RUNTIME_DIR:-/run/user/$(id -u)}/callmode
+PCM=/proc/asound/card0/pcm3p/sub0/status
+CALLVOL=$HOME/.config/callmode-volume
+
+mkdir -p "$D"
+echo 0 > "$D/speaker"
+echo 0 > "$D/voip"
+rm -f "$D/volume"
+
+SPK=alsa_output.platform-sound.HiFi__Speaker__sink
+MIC=alsa_input.platform-sound.HiFi__Mic__source
+
+# application.name of the streams on device $3 (index) from `pactl list $1`; $2 = Sink/Source.
+apps() {
+	[ -n "$3" ] || return
+	pactl list "$1" | awk -v key="$2:" -v idx="$3" '
+		/^[A-Z]/ { dev = "" }
+		$1 == key { dev = $2 }
+		/application.name = / && dev == idx { sub(/.*application.name = /, ""); print }' | sort -u
+}
+voip_now() {
+	s=$(pactl list short sinks | awk -v n=$SPK '$2 == n { print $1 }')
+	m=$(pactl list short sources | awk -v n=$MIC '$2 == n { print $1 }')
+	apps sink-inputs Sink "$s" > "$D/.play"
+	apps source-outputs Source "$m" > "$D/.rec"
+	[ -n "$(comm -12 "$D/.play" "$D/.rec")" ]
+}
+
+vol() { pactl get-sink-volume @DEFAULT_SINK@ | grep -o '[0-9]*%' | head -1 | tr -d %; }
+put() { echo "$2" > "$D/$1.tmp" && mv "$D/$1.tmp" "$D/$1"; }
+
+dbus-monitor --session "interface='org.mobian_project.CallAudio'" | while read -r line; do
+	case $line in
+	*member=EnableSpeaker*)
+		read -r arg
+		case $arg in *true*) put speaker 1 ;; *) put speaker 0 ;; esac ;;
+	*member=SelectMode*)
+		read -r arg
+		case $arg in *"uint32 0"*) put speaker 0 ;; esac ;;
+	esac
+done &
+
+# VoIP detection is event-driven: `pactl subscribe` marks $D/.streams-changed when a
+# playback/record stream appears or goes away, and only then is voip_now re-run
+# (polling it meant 4 pactl calls every 0.5 s, which kept PulseAudio busy all day).
+pactl subscribe | while read -r ev; do
+	case $ev in *sink-input*|*source-output*) : > "$D/.streams-changed" ;; esac
+done &
+: > "$D/.streams-changed"
+
+in_state() {  # q6voiced keeps the voice PCM open during a call ("state: ..." line)
+	while read -r l; do case $l in state:*) return 0 ;; esac; done < $PCM 2>/dev/null
+	return 1
+}
+
+# The UCM Voice Call DisableSequence turns the voice mixers off whenever the card leaves
+# that profile (callaudiod, or our HiFi reset below); without them the next call is silent
+# both ways. Re-enable them while idle (we are in the audio group).
+voice_mixers() {
+	for c in 'PRI_MI2S_RX Voice Mixer VoiceMMode1' 'VoiceMMode1 Capture Mixer TX_CODEC_DMA_TX_3'; do
+		amixer -c0 cget name="$c" 2>/dev/null | grep -q 'values=off' &&
+			amixer -q -c0 cset name="$c" 1 && logger -t callmode-user "re-enabled $c"
+	done
+	# 10-13: the voice DSP defaulted to TX topology NONE (69488) = no echo cancelling, so
+	# on speakerphone the other side heard themselves. 69489 = TX_SM_ECNS (single-mic echo
+	# cancel + noise suppression); read at call setup. Override in ~/.config/callmode-tx-topology.
+	t=$(cat "$HOME/.config/callmode-tx-topology" 2>/dev/null); case $t in ''|*[!0-9]*) t=69489 ;; esac
+	amixer -c0 cget name='VoiceMMode1 TX Topology' 2>/dev/null | grep -q ": values=$t\$" ||
+		{ amixer -q -c0 cset name='VoiceMMode1 TX Topology' "$t" && logger -t callmode-user "TX topology $t"; }
+}
+
+# Keep the phone out of suspend while a call (cellular or VoIP) is on: the screen is
+# off against the ear, so gsd-power counts it as idle (10-12, sleep timeout cut to 2 min).
+lock=
+hold() {
+	if [ "$1" = 1 ] && [ -z "$lock" ]; then
+		elogind-inhibit --what=sleep --who=callmode --why="Call in progress" --mode=block \
+			sleep 2147483647 & lock=$!
+	elif [ "$1" = 0 ] && [ -n "$lock" ]; then
+		pkill -P $lock; kill $lock 2>/dev/null; lock=
+	fi
+}
+trap 'hold 0; exit' INT TERM
+
+in_call=0 voip=0 tick=0
+while :; do
+	if [ $in_call = 0 ]; then
+		tick=$((tick + 1))
+		[ $tick -ge 4 ] && { tick=0; voice_mixers; }
+	fi
+	if in_state; then
+		if [ $in_call = 0 ]; then
+			music=$(vol)
+			cv=$(cat "$CALLVOL" 2>/dev/null)
+			case $cv in ''|*[!0-9]*) cv=70 ;; esac
+			pactl set-sink-volume @DEFAULT_SINK@ "$cv%"
+			in_call=1
+		fi
+		v=$(vol)
+		[ -n "$v" ] && [ "$v" != "$(cat "$D/volume" 2>/dev/null)" ] && put volume "$v"
+	elif [ $in_call = 1 ]; then
+		vol > "$CALLVOL"
+		[ -n "$music" ] && pactl set-sink-volume @DEFAULT_SINK@ "$music%"
+		rm -f "$D/volume"
+		put speaker 0
+		# callaudiod sometimes leaves the card on the Voice Call profile; recordings
+		# (video, VoIP) then go through the call mic path with the call gains.
+		pactl set-card-profile alsa_card.platform-sound HiFi 2>/dev/null
+		voice_mixers
+		in_call=0
+		: > "$D/.streams-changed"
+	fi
+	if [ -e "$D/.streams-changed" ]; then
+		rm -f "$D/.streams-changed"
+		if [ $in_call = 0 ] && voip_now; then voip=1; else voip=0; fi
+		[ "$(cat "$D/voip" 2>/dev/null)" = $voip ] || put voip $voip
+	fi
+	if [ $in_call = 1 ] || [ $voip = 1 ]; then hold 1; else hold 0; fi
+	sleep 0.5
+done

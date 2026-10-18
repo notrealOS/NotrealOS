@@ -1,0 +1,32 @@
+# SPDX-License-Identifier: CC0-1.0
+# Nothing Phone (1) MAIN camera, Sony IMX766 (10-bit RAW). Not calibrated for this sensor:
+# black level is the IMX766 pedestal (64 @ 10-bit); CCMs are copied from imx355.yaml
+# (a similar Sony mobile sensor), blended 30% toward identity (user: a bit too saturated, 10-14).
+%YAML 1.1
+---
+version: 1
+algorithms:
+  - BlackLevel:
+      blackLevel: 4096
+  - Awb:
+  - Ccm:
+      ccms:
+        - ct: 2920
+          ccm: [  1.49316, -0.19604, -0.29712,
+                -0.46582,  1.89281, -0.42699,
+                -0.11316, -0.62550,  1.73867 ]
+        - ct: 3630
+          ccm: [  1.57454, -0.33540, -0.23914,
+                -0.41098,  1.79598, -0.38501,
+                -0.08857, -0.52200,  1.61058 ]
+        - ct: 4550
+          ccm: [  1.56405, -0.33599, -0.22807,
+                -0.36481,  1.86332, -0.49850,
+                -0.08202, -0.45459,  1.53661 ]
+        - ct: 5580
+          ccm: [  1.59453, -0.36773, -0.22681,
+                -0.32122,  1.75545, -0.43423,
+                -0.08445, -0.39650,  1.48096 ]
+  - Adjust:
+  - Agc:
+...

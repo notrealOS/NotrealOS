@@ -1,0 +1,85 @@
+--- a/drivers/soc/qcom/pmic_glink_altmode.c
++++ b/drivers/soc/qcom/pmic_glink_altmode.c
+@@ -451,7 +451,7 @@
+ 	alt_port->mode = mode;
+ 	alt_port->hpd_state = hpd_state;
+ 	alt_port->hpd_irq = hpd_irq;
+-	schedule_work(&alt_port->work);
++	queue_work(system_freezable_wq, &alt_port->work);
+ }
+ 
+ #define SC8280XP_DPAM_MASK	0x3f
+@@ -502,7 +502,7 @@
+ 		alt_port->tbt_data = *tbt;
+ 	}
+ 
+-	schedule_work(&alt_port->work);
++	queue_work(system_freezable_wq, &alt_port->work);
+ }
+ 
+ static void pmic_glink_altmode_callback(const void *data, size_t len, void *priv)
+--- a/drivers/usb/dwc3/dwc3-qcom.c
++++ b/drivers/usb/dwc3/dwc3-qcom.c
+@@ -85,6 +85,8 @@
+ 	struct icc_path		*icc_path_apps;
+ 
+ 	enum usb_role		current_role;
++	bool			vbus_deferred;
++	bool			vbus_deferred_on;
+ };
+ 
+ #define to_dwc3_qcom(d) container_of((d), struct dwc3_qcom, dwc)
+@@ -570,6 +572,19 @@
+ 		return;
+ 	}
+ 
++	/*
++	 * A Type-C attach during system suspend can get here while the glue
++	 * clocks and interconnect are off; touching qscratch then resets the
++	 * SoC. Remember the override and apply it from pm_resume instead.
++	 */
++	if (qcom->is_suspended) {
++		qcom->vbus_deferred = true;
++		qcom->vbus_deferred_on = qcom->current_role != USB_ROLE_DEVICE;
++		pm_runtime_put_noidle(qcom->dev);
++		qcom->current_role = next_role;
++		return;
++	}
++
+ 	if (qcom->current_role == USB_ROLE_DEVICE)
+ 		dwc3_qcom_vbus_override_enable(qcom, false);
+ 	else if (qcom->current_role != USB_ROLE_DEVICE)
+@@ -775,6 +790,11 @@
+ 	ret = dwc3_qcom_resume(qcom, wakeup);
+ 	if (ret)
+ 		return ret;
++
++	if (qcom->vbus_deferred) {
++		dwc3_qcom_vbus_override_enable(qcom, qcom->vbus_deferred_on);
++		qcom->vbus_deferred = false;
++	}
+ 
+ 	qcom->pm_suspended = false;
+ 
+--- a/drivers/usb/typec/ucsi/ucsi.c
++++ b/drivers/usb/typec/ucsi/ucsi.c
+@@ -1575,7 +1575,7 @@
+ 	con = &ucsi->connector[num - 1];
+ 
+ 	if (!test_and_set_bit(EVENT_PENDING, &ucsi->flags))
+-		schedule_work(&con->work);
++		queue_work(system_freezable_wq, &con->work);
+ }
+ EXPORT_SYMBOL_GPL(ucsi_connector_change);
+ 
+--- a/drivers/usb/typec/ucsi/ucsi_glink.c
++++ b/drivers/usb/typec/ucsi/ucsi_glink.c
+@@ -342,7 +342,7 @@
+ 		pmic_glink_ucsi_write_ack(ucsi, data, len);
+ 		break;
+ 	case UC_UCSI_USBC_NOTIFY_IND:
+-		schedule_work(&ucsi->notify_work);
++		queue_work(system_freezable_wq, &ucsi->notify_work);
+ 		break;
+ 	}
+ }
