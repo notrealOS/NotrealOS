@@ -1739,7 +1739,7 @@ class Window(Adw.ApplicationWindow):
         self.nav = Adw.NavigationView()
         root = Adw.ToolbarView()
         hb = Adw.HeaderBar(css_classes=["vapor-bar"])
-        hb.set_title_widget(label("NOTAREAL·PLAYER", "app-title", xalign=0.5, ellipsize=False))
+        hb.set_title_widget(label("NOTREAL.PLAYER", "app-title", xalign=0.5, ellipsize=False))
         hb.pack_start(icon_button("system-search-symbolic", lambda: self.nav.push(SearchPage(self))))
         hb.pack_end(icon_button("emblem-system-symbolic", self.show_settings))
         root.add_top_bar(hb)

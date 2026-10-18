@@ -113,7 +113,7 @@ class MainPage(Adw.NavigationPage):
         self.view_btn = Gtk.Button(css_classes=["chip"])
         self.view_btn.connect("clicked", lambda *_: self.toggle_view())
         hb.pack_start(self.view_btn)
-        hb.set_title_widget(label("CALENDAR", "app-title", 0.5, False))
+        hb.set_title_widget(label("NOTREAL.CALENDAR", "app-title", 0.5, False))
         cals = Gtk.Button(icon_name="view-list-bullet-symbolic", css_classes=["flat"], tooltip_text="Calendars")
         cals.connect("clicked", lambda *_: CalendarsSheet(win).present(win))
         hb.pack_end(cals)
