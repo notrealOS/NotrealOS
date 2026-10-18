@@ -1,0 +1,62 @@
+/* VAPOR LIGHT theme: the vapor look on lavender paper (10-16). Same color NAMES as vapor;
+   "white" means the strongest ink here (like micro), bg/surface are light. */
+:root {
+  --nr-wallpaper: vaporlight;  /* notarealShell: background-vaporlight.jpg (pastel statue) */
+  --nr-corners: 1;
+  /* --- palette: "vapor light" (lavender paper, violet ink, cyan, pink) --- */
+  --nr-bg: #f4effc;            /* window background (lavender paper) */
+  --nr-bg-deep: #ebe3f9;       /* bars, sheets */
+  --nr-surface: #ffffff;       /* popovers, thumbnails */
+  --nr-fg: #2b2550;            /* text (deep violet ink) */
+  --nr-fg-bright: #1e1940;
+  --nr-accent: #8a5cf0;        /* violet: secondary actions, lines */
+  --nr-accent-light: #6f43d6;  /* accent TEXT: darker so it reads on paper */
+  --nr-violet: #9b6cf5;
+  --nr-glow: #f7a1e8;          /* pink haze at the bottom of windows */
+  --nr-primary: #1593b8;       /* cyan main action, dark enough for paper */
+  --nr-cyan: #34b8da;
+  --nr-pink: #e06fc8;
+  --nr-hot-pink: #f0468f;
+  --nr-mint: #11a585;
+  --nr-yellow: #e8a500;
+  --nr-orange: #e8771c;
+  --nr-blue: #3b7dde;
+  --nr-white: #1e1940;         /* "white" = strongest ink (as in micro): code-drawn text/sparkles */
+  /* title-chip gradient (app names) */
+  --nr-gradient: linear-gradient(90deg, var(--nr-pink), var(--nr-violet) 50%, var(--nr-cyan));
+
+  /* --- fonts --- */
+  --nr-font: "CozetteVector", "JetBrains Mono", monospace;   /* UI chrome */
+  --nr-font-code: "JetBrains Mono", monospace;
+  --nr-font-text: "Noto Sans CJK KR", "Noto Sans", sans-serif;  /* long reading text */
+
+  /* --- libadwaita follows the palette --- */
+  --accent-bg-color: var(--nr-accent); --accent-fg-color: var(--nr-bg); --accent-color: var(--nr-accent-light);
+  --window-bg-color: var(--nr-bg); --window-fg-color: var(--nr-fg);
+  --view-bg-color: var(--nr-bg); --view-fg-color: var(--nr-fg);
+  --headerbar-bg-color: var(--nr-bg); --headerbar-fg-color: var(--nr-fg);
+  --headerbar-backdrop-color: var(--nr-bg); --headerbar-shade-color: transparent;
+  --card-bg-color: alpha(var(--nr-accent), 0.07); --card-fg-color: var(--nr-fg);
+  --popover-bg-color: var(--nr-surface); --popover-fg-color: var(--nr-fg);
+  --dialog-bg-color: var(--nr-bg); --dialog-fg-color: var(--nr-fg);
+  --sheet-bg-color: var(--nr-bg); --sheet-fg-color: var(--nr-fg);
+  --thumbnail-bg-color: var(--nr-surface);
+  --destructive-bg-color: var(--nr-pink); --destructive-fg-color: var(--nr-bg); --destructive-color: var(--nr-pink);
+  --success-color: var(--nr-mint); --warning-color: var(--nr-yellow);
+}
+
+/* --- shared base look --- */
+window, dialog, popover, label, button, entry, text, textview, row, calendar, spinbutton, toast {
+  font-family: var(--nr-font);
+}
+window.background {
+  background-color: var(--nr-bg);
+  background-image: linear-gradient(180deg, alpha(var(--nr-bg), 0.0) 55%, alpha(var(--nr-glow), 0.22) 100%);
+}
+headerbar { box-shadow: none; }
+.app-title {
+  font-weight: bold; letter-spacing: 6px; font-size: 11pt; color: var(--nr-bg);
+  background: var(--nr-gradient); padding: 2px 12px; border-radius: 6px;
+}
+.vapor-bar { border-bottom: 1px solid alpha(var(--nr-pink), 0.35); }
+.sheet-title { letter-spacing: 4px; color: alpha(var(--nr-accent), 0.85); }

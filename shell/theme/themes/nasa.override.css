@@ -1,0 +1,24 @@
+/* NASA v4 overrides (10-17): above every app's style.css. Smooth whites + orange splashes:
+   no borders, no bevels, no gradients - raised things are plain white with a wide, faint shadow;
+   the main action and selected things are orange; entries are a soft grey well. */
+button, button.chip, togglebutton.chip, .chip, menubutton > button { border-radius: 14px; }
+entry { border-radius: 12px; }
+.card, .retro, popover > contents, .search-row, .suggestions, toast { border-radius: 18px; }
+.retro, .card, .search-row, .suggestions {
+  border: none; background-image: none;
+  box-shadow: 0 1px 2px alpha(black, 0.04), 0 8px 24px alpha(black, 0.06);
+}
+.retro, .allapps, .rampage, .search-row, .suggestions { background-color: var(--nr-surface); }
+button:not(.flat):not(.cam-shutter):not(.cam-thumb):not(.suggested-action):not(.destructive-action),
+button.chip, togglebutton.chip, .chip {
+  border: none; background-image: none; background-color: var(--nr-surface); color: var(--nr-fg);
+  box-shadow: 0 1px 2px alpha(black, 0.05), 0 4px 14px alpha(black, 0.06);
+}
+button:not(.flat):active, button.chip:active, .chip:active { box-shadow: 0 1px 2px alpha(black, 0.08); }
+button.suggested-action, button.fab, button:checked, togglebutton:checked, togglebutton.chip:checked {
+  border: none; background-image: none; background-color: var(--nr-primary); color: white;
+  box-shadow: 0 4px 14px alpha(var(--nr-primary), 0.30);
+}
+entry { border: none; box-shadow: none; background-color: alpha(var(--nr-fg), 0.05); }
+headerbar, .vapor-bar { background-image: none; box-shadow: none; border: none; }
+separator { background: alpha(var(--nr-fg), 0.06); }

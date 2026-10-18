@@ -1,0 +1,16 @@
+/* MICRO overrides: loaded ABOVE every app's style.css. Flat ink-on-paper everywhere. */
+.app-title, button, entry, popover > contents, .card, row, toast, .chip, list, textview, .retro, .ghost, .titlebar,
+.keycap, button.app-tile, button.dock-tile, button.chip, .search-row, .suggestions, menubutton > button {
+  border-radius: 0;
+}
+/* glows and drop shadows become hairlines */
+button, .card, .retro, .search-row, .suggestions, button.fab, button.chip, .cover-big {
+  box-shadow: none;
+}
+.retro { border: 1px solid var(--nr-fg); }
+.titlebar { background: var(--nr-fg-bright); }
+.titlebar .title { color: var(--nr-bg); letter-spacing: 3px; }
+/* paper panels are opaque: the blueprint wallpaper must not show through text */
+.retro, .allapps, .rampage, .search-row, .suggestions { background: var(--nr-surface); }
+entry, entry:focus-within { outline-color: alpha(var(--nr-fg-bright), 0.6); }
+entry.web, entry.web:focus-within, entry.search { border: 1px solid var(--nr-fg-bright); }

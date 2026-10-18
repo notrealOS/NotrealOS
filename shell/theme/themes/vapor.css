@@ -1,0 +1,62 @@
+/* VAPOR theme: navy, lavender, cyan, pink (the original notareal look).
+   Color names are shared by every theme; code-drawn parts map the vapor hex values to these names. */
+:root {
+  --nr-wallpaper: vapor;       /* what notarealShell draws behind everything */
+  --nr-corners: 1;             /* 0 = square corners in code-drawn parts (keyboard) */
+  /* --- palette: "vapor" (navy, lavender, cyan, pink) --- */
+  --nr-bg: #1c2340;            /* window background (navy) */
+  --nr-bg-deep: #161c36;       /* bars, sheets */
+  --nr-surface: #232a4d;       /* popovers, thumbnails */
+  --nr-fg: #e9e6fb;            /* text */
+  --nr-fg-bright: #eef0ff;
+  --nr-accent: #c5a0ff;        /* lavender: secondary actions, lines, glows */
+  --nr-accent-light: #d9c2ff;
+  --nr-violet: #b38cf5;
+  --nr-glow: #785aaa;          /* violet glow at the bottom of windows */
+  --nr-primary: #8fe0f2;       /* cyan: the main action */
+  --nr-cyan: #6fd6f2;          /* gradient cyan */
+  --nr-pink: #f7a1e8;          /* thin lines, highlights */
+  --nr-hot-pink: #ff7eb6;
+  --nr-mint: #7ef0d2;
+  --nr-yellow: #fffb96;
+  --nr-orange: #ffb86b;
+  --nr-blue: #5aa9ff;
+  --nr-white: #ffffff;
+  /* title-chip gradient (app names) */
+  --nr-gradient: linear-gradient(90deg, var(--nr-pink), var(--nr-violet) 50%, var(--nr-cyan));
+
+  /* --- fonts --- */
+  --nr-font: "CozetteVector", "JetBrains Mono", monospace;   /* UI chrome */
+  --nr-font-code: "JetBrains Mono", monospace;
+  --nr-font-text: "Noto Sans CJK KR", "Noto Sans", sans-serif;  /* long reading text */
+
+  /* --- libadwaita follows the palette --- */
+  --accent-bg-color: var(--nr-accent); --accent-fg-color: var(--nr-bg); --accent-color: var(--nr-accent-light);
+  --window-bg-color: var(--nr-bg); --window-fg-color: var(--nr-fg);
+  --view-bg-color: var(--nr-bg); --view-fg-color: var(--nr-fg);
+  --headerbar-bg-color: var(--nr-bg); --headerbar-fg-color: var(--nr-fg);
+  --headerbar-backdrop-color: var(--nr-bg); --headerbar-shade-color: transparent;
+  --card-bg-color: alpha(var(--nr-accent), 0.07); --card-fg-color: var(--nr-fg);
+  --popover-bg-color: var(--nr-surface); --popover-fg-color: var(--nr-fg);
+  --dialog-bg-color: var(--nr-bg); --dialog-fg-color: var(--nr-fg);
+  --sheet-bg-color: var(--nr-bg); --sheet-fg-color: var(--nr-fg);
+  --thumbnail-bg-color: var(--nr-surface);
+  --destructive-bg-color: var(--nr-pink); --destructive-fg-color: var(--nr-bg); --destructive-color: var(--nr-pink);
+  --success-color: var(--nr-mint); --warning-color: var(--nr-yellow);
+}
+
+/* --- shared base look --- */
+window, dialog, popover, label, button, entry, text, textview, row, calendar, spinbutton, toast {
+  font-family: var(--nr-font);
+}
+window.background {
+  background-color: var(--nr-bg);
+  background-image: linear-gradient(180deg, alpha(var(--nr-bg), 0.0) 55%, alpha(var(--nr-glow), 0.16) 100%);
+}
+headerbar { box-shadow: none; }
+.app-title {
+  font-weight: bold; letter-spacing: 6px; font-size: 11pt; color: var(--nr-bg);
+  background: var(--nr-gradient); padding: 2px 12px; border-radius: 6px;
+}
+.vapor-bar { border-bottom: 1px solid alpha(var(--nr-pink), 0.35); }
+.sheet-title { letter-spacing: 4px; color: alpha(var(--nr-accent), 0.85); }

@@ -1,0 +1,107 @@
+/* NASA v2 for Phosh (GTK3, 10-17): cassette futurism - putty panels without outlines, one stencil red. */
+
+/* Phosh's own named colors -> paper + ink */
+@define-color phosh_fg_color @nr_fg_bright;
+@define-color phosh_bg_color @nr_bg;
+@define-color phosh_borders_color alpha(@nr_fg, 0.25);
+@define-color phosh_notification_bg_color @nr_surface;
+@define-color phosh_action_bg_color @nr_bg_deep;
+@define-color phosh_activity_bg_color @nr_surface;
+@define-color phosh_splash_bg_color @nr_bg;
+@define-color phosh_splash_fg_color @nr_fg_bright;
+@define-color phosh_button_bg_color @nr_bg_deep;
+@define-color phosh_button_hover_bg_color shade(@nr_bg_deep, 0.95);
+@define-color phosh_button_active_bg_color shade(@nr_bg_deep, 0.88);
+@define-color phosh_emergency_button_bg_color @nr_orange;
+@define-color phosh_emergency_button_fg_color @nr_surface;
+@define-color theme_selected_bg_color @nr_primary;
+@define-color theme_selected_fg_color @nr_bg;
+@define-color theme_fg_color @nr_fg_bright;
+@define-color theme_bg_color @nr_bg;
+@define-color accent_bg_color @nr_primary;
+@define-color accent_color @nr_accent_light;
+
+* { font-family: "Adwaita Sans", "Open Sans", sans-serif; }
+
+/* top bar: paper strip, ink text + icons, hairline under it */
+phosh-top-panel-bg, #top-bar-bin, #top-bar { background-color: @nr_bg; }
+#top-bar { border-bottom: 1px solid alpha(black, 0.10); box-shadow: inset 0 -1px alpha(white, 0.4); }
+#top-bar label, #top-bar image { color: @nr_fg_bright; }
+#top-bar-bin:not(.p-solid) #top-bar label { text-shadow: none; }
+#top-bar-bin:not(.p-solid) #top-bar image { -gtk-icon-shadow: none; }
+.phosh-topbar-clock { color: @nr_primary; font-weight: 800; letter-spacing: 2px; }
+/* JetBrains Mono's line height is taller than Phosh's default font: in the fixed 32 px bar
+   (4+4 px padding) the labels overflowed and got clipped at the top (10-12). */
+#top-bar { padding-top: 1px; padding-bottom: 1px; }
+#top-bar label { font-size: 13px; }
+phosh-top-panel .phosh-topbar-clock { font-size: 14px; }
+
+/* overview: the shell's blueprint sheet shows through, faded */
+phosh-home {
+  /* no tint: Phosh reads this only at login, the shell wallpaper underneath follows the theme live */
+  background-color: transparent;
+  background-image: none;
+  color: @nr_fg_bright;
+}
+phosh-home:not(.p-solid) phosh-app-grid label { text-shadow: none; }
+phosh-activity .phosh-drawingarea,
+phosh-activity.phosh-maximized .phosh-drawingarea {
+  border-radius: 14px;
+  background-color: @nr_surface;
+  border: none;
+  box-shadow: 0 1px 3px alpha(black, 0.18);
+}
+phosh-activity > widget > button:focus { box-shadow: inset 0 0 0 2px @nr_fg_bright; }
+.phosh-activity-close-button {
+  background: @nr_primary; color: @nr_bg; border: none; border-radius: 14px; box-shadow: none;
+}
+.phosh-search-bar {
+  border-radius: 14px; border: none; background-color: @nr_surface;
+  color: @nr_fg_bright; box-shadow: none;
+}
+phosh-app-grid separator { background: alpha(@nr_fg, 0.08); min-height: 1px; }
+
+/* drawer (quick settings + notifications) */
+phosh-top-panel { color: @nr_fg_bright; }
+phosh-quick-setting, phosh-quick-setting button,
+phosh-quick-setting button:first-child, phosh-quick-setting button:only-child,
+phosh-quick-setting button:last-child:not(:only-child) { border-radius: 14px; }
+phosh-quick-setting { border: none; box-shadow: inset 0 1px alpha(white, 0.5), inset 0 -2px alpha(black, 0.10); }
+phosh-quick-setting:checked { background-color: @nr_primary; color: @nr_bg; }
+phosh-notification-frame, phosh-notification-banner .phosh-notification-tray,
+phosh-media-player, phosh-call-notification {
+  border-radius: 6px; border: none; box-shadow: inset 0 1px alpha(white, 0.5), 0 1px 2px alpha(black, 0.12); background-color: @nr_surface; color: @nr_fg_bright;
+}
+scale trough, progressbar trough, levelbar trough { background-color: alpha(@nr_fg, 0.15); border-radius: 14px; }
+scale highlight, progressbar progress, levelbar block.filled { background-color: @nr_primary; border-radius: 14px; }
+scale slider { background-color: @nr_surface; border: none; border-radius: 3px; box-shadow: 0 1px 2px alpha(black, 0.3), inset 0 1px alpha(white, 0.6); }
+switch { border-radius: 999px; }
+switch slider { border-radius: 999px; }
+switch:checked { background-color: @nr_primary; }
+
+/* lock screen: paper, big ink clock, square keypad */
+phosh-lockscreen-bg { background-color: @nr_bg; color: @nr_fg_bright; }
+phosh-lockscreen { color: @nr_fg_bright; }
+#phosh-lockscreen-clock { font-weight: 300; letter-spacing: 2px; }
+#phosh-lockscreen-date { letter-spacing: 3px; color: @nr_primary; }
+phosh-keypad button {
+  border-radius: 14px; border: none; background-color: @nr_surface; color: @nr_fg_bright;
+  box-shadow: inset 0 1px alpha(white, 0.55), inset 0 -2px alpha(black, 0.12);
+}
+phosh-keypad button:active { background-color: @nr_primary; color: @nr_bg; }
+.phosh-lockscreen-pin, entry { border-radius: 14px; }
+
+/* power menu, OSD, system dialogs */
+phosh-osd-window .phosh-system-modal, #osd-bubble, .phosh-system-modal-dialog, phosh-power-menu {
+  border-radius: 14px; border: none; background-color: @nr_surface; color: @nr_fg_bright;
+}
+button.suggested-action { background: @nr_primary; color: @nr_bg; border-radius: 14px; }
+button { border-radius: 14px; }
+
+
+/* v4 (10-17): smooth white tiles with soft shadows, orange when on */
+phosh-quick-setting, phosh-keypad button {
+  background-color: @nr_surface; background-image: none; border: none;
+  box-shadow: 0 1px 2px alpha(black, 0.05), 0 4px 12px alpha(black, 0.06);
+}
+phosh-quick-setting:checked { background-color: @nr_primary; color: white; }

@@ -1,0 +1,68 @@
+/* ALIEN theme (10-16): a 2120s colony CRT terminal (Alien: Romulus look).
+   Phosphor off-white on tube black, square boxes, scanlines, VT323 pixel titles, Share Tech Mono UI.
+   Amber console keys + one red alert. Built on micro's flat rules (alien.override.css = square/flat).
+   Color NAMES as in vapor: white/fg-bright/primary = brightest phosphor, accent = dim phosphor,
+   pink = hairline, cyan/mint = the cyan data screens, orange/yellow = amber, hot-pink = alert red. */
+:root {
+  --nr-wallpaper: alien;       /* notarealShell draws the terminal (phantomshell._alien) */
+  --nr-corners: 0;
+  --nr-bg: #060a08;            /* tube black, green-tinted */
+  --nr-bg-deep: #020403;
+  --nr-surface: #0c1410;
+  --nr-fg: #c6ecd4;            /* P1-ish phosphor: green-white */
+  --nr-fg-bright: #e9fff1;
+  --nr-white: #e9fff1;
+  --nr-accent: #6f9a82;        /* dim phosphor: lines, secondary text */
+  --nr-accent-light: #a2c9b1;
+  --nr-violet: #8fb59e;
+  --nr-glow: #12301f;          /* green bloom in the middle of the tube */
+  --nr-primary: #e9fff1;
+  --nr-pink: #3f5a4a;          /* hairlines */
+  --nr-cyan: #7fd3c9;          /* cyan data screens */
+  --nr-mint: #8fdcae;
+  --nr-yellow: #ffc75a;        /* amber */
+  --nr-orange: #ff9f2e;
+  --nr-hot-pink: #ff4528;      /* alert red */
+  --nr-blue: #6fb0d6;
+  --nr-gradient: linear-gradient(90deg, var(--nr-fg-bright), var(--nr-fg-bright));
+
+  --nr-font: "Share Tech Mono", "JetBrains Mono", monospace;
+  --nr-font-code: "Share Tech Mono", "JetBrains Mono", monospace;
+  --nr-font-text: "Open Sans", sans-serif;
+  --nr-font-title: "VT323", monospace;
+
+  --accent-bg-color: var(--nr-fg-bright); --accent-fg-color: var(--nr-bg); --accent-color: var(--nr-fg-bright);
+  --window-bg-color: var(--nr-bg); --window-fg-color: var(--nr-fg);
+  --view-bg-color: transparent; --view-fg-color: var(--nr-fg);   /* the tube shows through */
+  --headerbar-bg-color: transparent; --headerbar-fg-color: var(--nr-fg);
+  --headerbar-backdrop-color: var(--nr-bg); --headerbar-shade-color: transparent;
+  --card-bg-color: alpha(var(--nr-surface), 0.55); --card-fg-color: var(--nr-fg);
+  --popover-bg-color: var(--nr-surface); --popover-fg-color: var(--nr-fg);
+  --dialog-bg-color: var(--nr-bg); --dialog-fg-color: var(--nr-fg);
+  --sheet-bg-color: var(--nr-bg); --sheet-fg-color: var(--nr-fg);
+  --thumbnail-bg-color: var(--nr-bg-deep);
+  --destructive-bg-color: var(--nr-orange); --destructive-fg-color: var(--nr-surface); --destructive-color: var(--nr-orange);
+  --success-color: var(--nr-mint); --warning-color: var(--nr-orange);
+  --border-color: alpha(var(--nr-fg), 0.25);
+  --focus-ring-color: alpha(var(--nr-fg-bright), 0.6);
+}
+
+window, dialog, popover, label, button, entry, text, textview, row, calendar, spinbutton, toast {
+  font-family: var(--nr-font);
+}
+/* CRT tube (v2 10-17): strong scanlines over everything (views are transparent), a green bloom
+   in the middle, and the curved glass going dark toward the edges and corners */
+window.background {
+  background-color: var(--nr-bg);
+  background-image:
+    repeating-linear-gradient(0deg, alpha(black, 0.42) 0px, alpha(black, 0.42) 1px, transparent 1px, transparent 3px),
+    radial-gradient(ellipse farthest-corner at 50% 45%, transparent 55%, alpha(black, 0.75) 100%),
+    radial-gradient(ellipse closest-side at 50% 45%, alpha(var(--nr-glow), 0.85), transparent);
+}
+headerbar { box-shadow: none; border-bottom: 1px solid var(--nr-fg); }
+.app-title {
+  font-family: var(--nr-font-title); font-weight: normal; letter-spacing: 4px; font-size: 15pt; color: var(--nr-bg);
+  background: var(--nr-fg-bright); padding: 0 12px; border-radius: 0;
+}
+.vapor-bar { border-bottom: 1px solid var(--nr-fg); }
+.sheet-title { letter-spacing: 4px; color: var(--nr-accent); }

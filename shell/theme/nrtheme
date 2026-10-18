@@ -1,0 +1,21 @@
+#!/bin/sh
+# nrtheme [name]: switch the notareal theme everywhere.
+#   our GTK4 apps, shell wallpaper, widget, joystick, keyboard: live (they watch ~/theme/active)
+#   Phosh (top bar, overview, lock screen, drawer): ~/.config/gtk-3.0/gtk.css is regenerated,
+#     and applies at the next login (GTK3 reads gtk.css only at start; restarting phosh ENDS the session)
+#   icons: ~/theme/icon-src recolored into ~/.local/share/icons
+# No name: list themes.
+D="$HOME/theme"
+if [ -z "$1" ]; then
+	echo "active: $(cat "$D/active" 2>/dev/null || echo vapor)"
+	echo "themes: $(ls "$D/themes" | grep -E '^[a-z0-9_-]+\.css$' | grep -v gtk3 | sed 's/\.css$//' | tr '\n' ' ')"
+	exit 0
+fi
+[ -f "$D/themes/$1.css" ] || { echo "no theme '$1' (ls $D/themes)" >&2; exit 1; }
+printf '%s\n' "$1" > "$D/active.tmp" && mv "$D/active.tmp" "$D/active"
+echo "theme: $1"
+python3 "$D/icons.py"
+if [ "$(python3 "$D/build_gtk3.py")" = changed ]; then
+	# NEVER kill phosh to reload it: on 10-12 that ended the whole session (back to the login screen)
+	echo "phosh: new look written; it applies at the next login (log out + in, or reboot)"
+fi

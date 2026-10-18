@@ -1,0 +1,172 @@
+/* Stevia on-screen keyboard: boxless, matched (subtly) to the PhantomShell vapor theme.
+   Previous version: gtk.css.before-vapor */
+
+pos-input-surface,
+pos-osk-widget {
+  background-color: rgba(28, 35, 64, 0.90);
+  background-image: linear-gradient(180deg, rgba(28, 35, 64, 0.0) 0%, rgba(120, 90, 170, 0.16) 100%);
+}
+
+pos-key,
+pos-key.sys,
+pos-key.toggle,
+pos-key.space,
+pos-key.return {
+  background: none;
+  box-shadow: none;
+  border: none;
+  font-family: "CozetteVector", "JetBrains Mono", monospace;
+  font-weight: normal;
+  color: #e9e6fb;
+}
+
+/* Function keys: dim lavender */
+pos-key.sys,
+pos-key.toggle {
+  color: rgba(197, 160, 255, 0.70);
+}
+
+/* Enter: pale cyan instead of a filled box */
+pos-key.return {
+  color: #8fe0f2;
+}
+
+/* Thin pink-to-cyan line marks the space bar */
+pos-key.space {
+  border-bottom: 1px solid rgba(247, 161, 232, 0.35);
+  border-radius: 0;
+  color: rgba(233, 230, 251, 0.55);
+}
+
+/* Soft lavender glow only while pressed */
+pos-key.pressed,
+pos-key.sys.pressed,
+pos-key.toggle.pressed,
+pos-key.return.pressed {
+  background: rgba(197, 160, 255, 0.16);
+  border-radius: 6px;
+}
+
+pos-completion-bar,
+pos-shortcuts-bar {
+  background: none;
+  font-family: "CozetteVector", "JetBrains Mono", monospace;
+}
+
+pos-shortcuts-bar button,
+pos-completion-bar button {
+  background: none;
+  color: rgba(233, 230, 251, 0.75);
+}
+
+pos-shortcuts-bar button:hover,
+pos-completion-bar button:hover {
+  background: none;
+}
+
+pos-shortcuts-bar button:active,
+pos-shortcuts-bar button.toggle:checked,
+pos-completion-bar button:active {
+  background: rgba(197, 160, 255, 0.16);
+}
+
+
+/* ---- Phosh overview in the vapor look of ~/overview-widget ----
+   navy #1c2340, lavender #c5a0ff, pink #f7a1e8, cyan #6fd6f2, mint #7ef0d2.
+   Previous version: gtk.css.before-overview-theme */
+
+/* Tint the grey wallpaper towards navy/purple behind the overview */
+phosh-home {
+  /* no tint: Phosh reads this only at login, the shell wallpaper underneath follows the theme live */
+  background-image: none;
+  background-color: transparent;
+}
+
+phosh-home phosh-app-grid label {
+  font-family: "JetBrains Mono", monospace;
+  font-size: 8pt;
+  color: #dfe3ff;
+}
+
+/* Open-app cards: no frame, just a soft lavender/pink glow (matches the voice "SPEAK NOW" cue).
+   Previous version (frame + ghost shadow): gtk.css.before-glow */
+phosh-activity .phosh-drawingarea,
+phosh-activity.phosh-maximized .phosh-drawingarea {
+  border-radius: 12px;
+  background-color: rgba(28, 35, 64, 0.86);
+  /* no glow: GTK3 redraws card effects in software on every swipe frame
+     (old blurred glow: gtk.css.before-cheapglow) */
+  box-shadow: none;
+}
+
+phosh-activity > widget > button:focus {
+  box-shadow: inset 0 0 0 2px #6fd6f2;
+}
+
+.phosh-activity-close-button {
+  background: #f7a1e8;
+  color: #1c2340;
+  border: none;
+  box-shadow: 0 3px 0 rgba(150, 60, 140, 0.6);
+}
+
+/* Search bar: retro panel instead of a grey pill */
+.phosh-search-bar {
+  border-radius: 7px;
+  border: 2px solid #c5a0ff;
+  background-color: rgba(28, 35, 64, 0.86);
+  color: #eef0ff;
+  font-family: "JetBrains Mono", monospace;
+  font-size: 10pt;
+  box-shadow: 5px 5px 0 rgba(150, 110, 230, 0.45);
+}
+
+.phosh-search-bar > image {
+  color: #6fd6f2;
+  opacity: 1;
+}
+
+.phosh-search-bar:focus {
+  border: 2px solid #6fd6f2;
+  box-shadow: 5px 5px 0 rgba(111, 214, 242, 0.35);
+}
+
+/* Favorites divider: the widget's title-bar gradient as a thin line */
+phosh-app-grid separator {
+  background: linear-gradient(90deg, #f7a1e8, #b38cf5 50%, #6fd6f2);
+  min-height: 2px;
+}
+
+phosh-app-grid-button button:active,
+phosh-app-grid-button button:hover:active,
+phosh-app-grid-button button:focus,
+.search-active phosh-app-grid-button:first-child button {
+  background: rgba(197, 160, 255, 0.22);
+  box-shadow: inset 0 0 0 2px #c5a0ff;
+  border-radius: 7px;
+}
+
+phosh-app-grid-folder-button button {
+  border-radius: 7px;
+  background: rgba(28, 35, 64, 0.70);
+  box-shadow: inset 0 0 0 2px rgba(197, 160, 255, 0.6);
+}
+
+#phosh-filter-adaptive-btn {
+  border-radius: 7px;
+  background: #7ef0d2;
+  color: #1c2340;
+  font-family: "JetBrains Mono", monospace;
+  font-weight: bold;
+  box-shadow: 0 3px 0 rgba(30, 120, 110, 0.6);
+}
+
+/* Top bar: monospace like the widget, clock in pink */
+#top-bar label {
+  font-family: "JetBrains Mono", monospace;
+}
+
+.phosh-topbar-clock {
+  color: #f7a1e8;
+}
+

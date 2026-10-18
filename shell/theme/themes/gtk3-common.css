@@ -1,0 +1,20 @@
+/* Phosh (GTK3) LAYOUT shared by every theme. nrtheme writes ~/.config/gtk-3.0/gtk.css =
+   this file + themes/<name>.gtk3.css, then restarts Phosh (GTK3 reads gtk.css only at start). */
+
+/* Phosh overview: leave room at the top for ~/overview-widget (its HEIGHT is 236),
+   then the open-app cards, then the app grid (about 3 rows; it scrolls).
+   Previous version: gtk.css.before-overview */
+.phosh-overview {
+  margin-top: 240px;
+}
+
+.phosh-overview carousel {
+  min-height: 540px;
+}
+
+/* App grid replaced by the joystick launcher (~/arc/joystick.py, shown by ~/overview-widget):
+   hide Phosh's grid + search; the joystick panel sits on top and takes the touches.
+   Previous version: gtk.css.before-joystick */
+phosh-app-grid {
+  opacity: 0;
+}
