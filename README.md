@@ -40,6 +40,21 @@ All apps are Python + GTK4/libadwaita, sized for a phone, with the main controls
 | [notreal.maps](apps/notreal.maps) | Google maps, places and routes with GPS and offline voice navigation |
 | [notreal.feed](apps/notreal.feed) | Reader for Reddit through a self-hosted Redlib on the PC (not affiliated with Reddit) |
 
+## The shell
+
+The Phosh app grid is replaced by a **joystick**: hold it and your most-used apps fan out under
+your thumb. Above it, a **widget** shows weather, battery and RAM, the phone's health, what's
+playing and your agenda. Swipe up from the left edge for **search, reminders and notes**:
+reminders wake the phone from sleep and are read aloud. Hold volume up to just say it instead.
+
+<p>
+<img src="docs/screenshots/real-overview-joystick.png" width="200" alt="Joystick launcher">
+<img src="docs/screenshots/real-search-reminders.png" width="200" alt="Search, reminders and notes">
+<img src="docs/screenshots/real-camera.png" width="200" alt="notreal.cam">
+</p>
+
+*Real screenshots from the phone, personal details blacked out.* More in [shell/](shell).
+
 ## Layout
 
 ```
