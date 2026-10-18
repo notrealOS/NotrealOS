@@ -1,0 +1,11 @@
+[Unit]
+Description=notreal.feed JSON API over Redlib
+After=network-online.target
+
+[Service]
+ExecStart=/usr/bin/python3 %h/notrealOS/pc/feed/api.py
+Restart=always
+RestartSec=3
+
+[Install]
+WantedBy=default.target

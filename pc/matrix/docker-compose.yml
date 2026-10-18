@@ -1,0 +1,54 @@
+services:
+  postgres:
+    image: postgres:16
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: matrix
+      POSTGRES_PASSWORD: ${PGPASS}
+    volumes:
+      - ./postgres:/var/lib/postgresql/data
+      - ./pg-init:/docker-entrypoint-initdb.d:ro
+    healthcheck:
+      test: ["CMD", "pg_isready", "-U", "matrix"]
+      interval: 5s
+  synapse:
+    image: matrixdotorg/synapse:latest
+    restart: unless-stopped
+    depends_on: { postgres: { condition: service_healthy } }
+    environment: { UID: "1000", GID: "1000" }
+    volumes:
+      - ./synapse:/data
+      - ./whatsapp:/bridges/whatsapp:ro
+      - ./meta:/bridges/meta:ro
+      - ./gvoice:/bridges/gvoice:ro
+      - ./instagram:/bridges/instagram:ro
+    ports:
+      - "127.0.0.1:8008:8008"
+  mautrix-whatsapp:
+    image: dock.mau.dev/mautrix/whatsapp:latest
+    restart: unless-stopped
+    depends_on: [synapse]
+    environment: { UID: "1000", GID: "1000" }
+    volumes:
+      - ./whatsapp:/data
+  mautrix-meta:
+    image: dock.mau.dev/mautrix/meta:latest
+    restart: unless-stopped
+    depends_on: [synapse]
+    environment: { UID: "1000", GID: "1000" }
+    volumes:
+      - ./meta:/data
+  mautrix-gvoice:
+    image: dock.mau.dev/mautrix/gvoice:latest
+    restart: unless-stopped
+    depends_on: [synapse]
+    environment: { UID: "1000", GID: "1000" }
+    volumes:
+      - ./gvoice:/data
+  mautrix-instagram:
+    image: dock.mau.dev/mautrix/meta:ig-latest
+    restart: unless-stopped
+    depends_on: [synapse]
+    environment: { UID: "1000", GID: "1000" }
+    volumes:
+      - ./instagram:/data

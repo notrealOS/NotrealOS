@@ -1,0 +1,16 @@
+# Navidrome music server for notreal.player. Example: adjust the paths to your music library.
+# It listens on 127.0.0.1 only; `tailscale serve --bg --tcp 4533 tcp://127.0.0.1:4533` makes it
+# reachable from the phone over your tailnet and nowhere else.
+services:
+  navidrome:
+    image: deluan/navidrome:latest
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:4533:4533"
+    environment:
+      ND_LOGLEVEL: info
+      # animated covers: notreal.player shows cover.webp as a looping video (via spin_anim.py)
+      ND_COVERARTPRIORITY: "cover.webp,cover.jpg,cover.png,folder.jpg,folder.png,embedded"
+    volumes:
+      - "./data:/data"
+      - "/path/to/your/Music:/music:ro"

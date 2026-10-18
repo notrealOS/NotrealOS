@@ -17,6 +17,12 @@ APPS = {
     "gallery": "apps/notreal.gallery", "edit": "apps/notreal.edit", "link": "apps/notreal.link",
     "share": "apps/notreal.share", "nrvolume": "apps/notreal.sound", "spin": "apps/notreal.player",
     "maps": "apps/notreal.maps", "reddit": "apps/notreal.feed",
+    "theme": "shell/theme",
+}
+
+# per-source paths (regex on the path inside the folder) that must stay private or aren't ours to publish
+EXCLUDE = {
+    "theme": r"^lock/vapor|^icons-before|\.v1$|^icon-src/(?!dev\.notareal\.(?!Droid)|org\.gnome\.|mobi\.phosh\.|sm\.puri\.)",
 }
 
 SKIP_DIR = {"__pycache__", ".git", "shots", "venv", ".venv", "node_modules", "models", "cache"}
@@ -30,11 +36,11 @@ def stage(src, dst):
     shutil.rmtree(d, ignore_errors=True)
     skipped = []
     for root, dirs, files in os.walk(s):
-        dirs[:] = [x for x in dirs if x not in SKIP_DIR]
+        dirs[:] = [x for x in dirs if x not in SKIP_DIR and not x.endswith(".bak")]
         for f in files:
             p = os.path.join(root, f)
             rel = os.path.relpath(p, s)
-            if SKIP_FILE.search(f) or os.path.islink(p) or os.path.getsize(p) > MAX:
+            if SKIP_FILE.search(f) or re.search(EXCLUDE.get(src, "$^"), rel) or os.path.islink(p) or os.path.getsize(p) > MAX:
                 skipped.append(rel)
                 continue
             os.makedirs(os.path.dirname(os.path.join(d, rel)), exist_ok=True)

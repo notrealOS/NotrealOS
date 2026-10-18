@@ -1,0 +1,13 @@
+[Unit]
+Description=nrbrain: the phone's AI gateway (Qwen on the RTX, frees ComfyUI VRAM first)
+After=network-online.target tailscaled.service
+
+[Service]
+# your PC's Tailscale IP (`tailscale ip -4`): the phone reaches nrbrain only over the tailnet
+Environment=NRBRAIN_HOST=100.x.y.z
+ExecStart=/usr/bin/python3 %h/notrealOS/pc/llm/nrbrain.py
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=default.target

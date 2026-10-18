@@ -1,0 +1,10 @@
+[Unit]
+Description=nrwhisper: speech-to-text for the phone (whisper small, CPU only (turbo took 5.9 s on CPU): VRAM stays for the LLM)
+
+[Service]
+ExecStart=%h/llm/whisper.cpp/build/bin/whisper-server -m %h/llm/models/ggml-small-q5_1.bin --host 127.0.0.1 --port 8098 -t 16 -ng
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=default.target
