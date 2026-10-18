@@ -10,7 +10,7 @@ PATTERNS = {
     "tailscale ip": r"\b100\.(6[4-9]|[7-9]\d|1[01]\d|12[0-7])\.\d{1,3}\.\d{1,3}\b",
     "lan ip": r"\b192\.168\.\d{1,3}\.\d{1,3}\b",
     "tailnet host": r"\b[\w-]+\.tail[0-9a-f]+\.ts\.net\b|notarealcachy",
-    "phone number": r"\+\d{9,14}\b",
+    "phone number": r"\+(?!1555555\d{4}\b)\d{9,14}\b",   # +1 555-555-xxxx is the fictional range
     "email": r"\b(?!(?:you|user|me|name)@)[\w.+-]+@(?!example\.)[\w-]+\.[\w.]+\b",
     "google key": r"AIza[0-9A-Za-z_-]{30,}",
     "oauth secret": r"GOCSPX-[\w-]+|\b\d{6,}-[0-9a-z]{20,}\.apps\.googleusercontent\.com",
