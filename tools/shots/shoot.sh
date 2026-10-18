@@ -26,12 +26,15 @@ cat > "$SB/inner.sh" <<EOI
 pulseaudio -n --daemonize=no --exit-idle-time=-1 --disallow-exit --load=module-native-protocol-unix \
     --load="module-null-sink sink_name=demo sink_properties=device.description=Speaker" >/dev/null 2>&1 &
 A=\$!
+# hold the vibration/LED service's bus name, so the real feedbackd is never started in here
+python3 -c 'from gi.repository import Gio, GLib; Gio.bus_own_name(Gio.BusType.SESSION, "org.sigxcpu.Feedback", 0, None, None, None); GLib.MainLoop().run()' &
+F=\$!
 sleep 1
 phoc -C "$HERE/phoc-portrait.ini" -E "python3 $HERE/snap.py '$OUT' $*" &
 P=\$!
 i=0
 while [ \$i -lt ${SHOT_TIMEOUT:-60} ] && [ ! -s "$OUT" ] && kill -0 \$P 2>/dev/null; do sleep 1; i=\$((i+1)); done
-sleep 1; kill \$P \$A 2>/dev/null; wait \$P 2>/dev/null
+sleep 1; kill \$P \$A \$F 2>/dev/null; wait \$P 2>/dev/null
 EOI
 env -i PATH="$PATH" HOME="$SB/home" USER="$USER" LANG="${LANG:-en_US.UTF-8}" XDG_RUNTIME_DIR="$RUN" \
     WLR_BACKENDS=headless WLR_RENDERER=pixman WLR_LIBINPUT_NO_DEVICES=1 GSK_RENDERER=cairo \
