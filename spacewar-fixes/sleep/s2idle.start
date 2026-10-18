@@ -1,0 +1,7 @@
+#!/bin/sh
+# ~/sleepfix: deep sleep resets the phone
+echo s2idle > /sys/power/mem_sleep
+# the Bluetooth UART's RX wake line fires as the UART suspends -> every suspend bounced in 0.5 s (10-12)
+echo disabled > /sys/devices/platform/soc@0/9c0000.geniqup/99c000.serial/power/wakeup
+# plugging USB-C (DAC) in during s2idle reset the phone 3x on 10-14 -> no USB wake
+echo disabled > /sys/devices/platform/soc@0/a600000.usb/power/wakeup

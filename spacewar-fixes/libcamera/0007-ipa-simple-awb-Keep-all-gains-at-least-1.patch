@@ -1,0 +1,34 @@
+From: notrealOS <53965041+notrealdotmp4@users.noreply.github.com>
+Subject: [PATCH] ipa: simple: awb: Keep all gains at least 1.0
+
+With a red gain below 1 (warm light), sensor-clipped highlights come out
+cyan instead of white because the debayer clamps after the gains.
+---
+--- a/src/ipa/simple/algorithms/awb.cpp	2026-10-09 23:08:55.162414814 +0200
++++ b/src/ipa/simple/algorithms/awb.cpp	2026-10-09 23:08:55.228116080 +0200
+@@ -7,6 +7,7 @@
+ 
+ #include "awb.h"
+ 
++#include <algorithm>
+ #include <numeric>
+ #include <stdint.h>
+ 
+@@ -88,6 +89,17 @@
+ 	context.activeState.awb.temperatureK = estimateCCT(rgbGains);
+ 	metadata.set(controls::ColourTemperature, context.activeState.awb.temperatureK);
+ 
++	/*
++	 * Keep every gain at 1.0 or above. The debayer clamps each channel to the
++	 * sensor range right after the gains, so with a gain below 1.0 a channel
++	 * that clipped in the sensor ends up below full scale while the others
++	 * saturate: blown-out highlights turn cyan under warm light (red gain < 1)
++	 * instead of white. Real ISPs normalise the smallest gain to 1.0 for this.
++	 */
++	const float minGain = std::min({ gains.r(), gains.g(), gains.b() });
++	if (minGain < 1.0f)
++		gains /= minGain;
++
+ 	LOG(IPASoftAwb, Debug)
+ 		<< "gain R/B: " << gains << "; temperature: "
+ 		<< context.activeState.awb.temperatureK;

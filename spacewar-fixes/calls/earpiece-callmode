@@ -1,0 +1,87 @@
+#!/bin/sh
+# Routes call audio to the earpiece on the Nothing Phone (1).
+# Both TFA9873 amps play the same signal: 0x34 = earpiece (top), 0x35 = bottom
+# loudspeaker. q6voiced holds the VoiceMMode1 PCM open while a call is active (it
+# stays PREPARED, the DSP does the streaming). During a call only one amp is left
+# powered: the earpiece, or the loudspeaker when the speaker button is on.
+# Call volume (the volume keys) is mapped onto that amp's gain.
+# Speaker button and volume come from callmode-user, which runs in the user session
+# and writes them to USER_DIR (it can see D-Bus and PulseAudio, this can't).
+#
+# VoIP calls (USER_DIR/voip = 1) play through PulseAudio instead, at media level, which
+# overdrives the earpiece at the normal gain: they get the earpiece only at VOIP_GAIN.
+#
+# Outside calls both amps are held at MEDIA_GAIN. The driver default (190) is so loud
+# that media is listened to at a few % PulseAudio volume; PA attenuates in software on
+# a 16-bit path, so little resolution is left and speech/music sound robotic.
+#
+# Usage: earpiece-callmode [GAIN_MIN GAIN_MAX [USER_DIR [VOIP_GAIN [MEDIA_GAIN]]]]
+# GAIN_* are the AMP_CFG gain field (0-255; 190 is the driver default); call
+# volume 0% maps to GAIN_MIN, 100% to GAIN_MAX.
+
+GAIN_MIN=${1:-30}
+GAIN_MAX=${2:-190}
+USER_DIR=${3:-/run/user/10000/callmode}
+VOIP_GAIN=${4:-100}
+NORMAL_GAIN=${5:-190}
+EAR=0x34
+SPK=0x35
+BUS=2
+CARD=0
+PCM=/proc/asound/card$CARD/pcm3p/sub0/status
+
+# TFA registers are 16-bit big-endian; i2cget/i2cset "w" are little-endian.
+rd() { v=$(i2cget -f -y $BUS "$1" "$2" w) || return 1; echo $(( ((v & 0xff) << 8) | (v >> 8) )); }
+wr() { i2cset -f -y $BUS "$1" "$2" $(( (($3 & 0xff) << 8) | (($3 >> 8) & 0xff) )) w; }
+pwdn() { c=$(rd $1 0x00) && [ $(( c & 1 )) -eq 0 ] && wr $1 0x00 $(( c | 1 )); }
+pwup() { c=$(rd $1 0x00) && [ $(( c & 1 )) -eq 1 ] && wr $1 0x00 $(( c & ~1 )); }
+gain() { g=$(rd $1 0x52) && [ $(( (g >> 5) & 0xff )) -ne $2 ] && wr $1 0x52 $(( (g & ~0x1fe0) | (($2 & 0xff) << 5) )); }
+
+# Only plain integers are accepted from the user-writable files.
+num() { v=$(cat "$1" 2>/dev/null); case $v in ''|*[!0-9]*) echo "$2" ;; *) echo "$v" ;; esac; }
+
+# Voice routing: idle unless the VoiceMMode1 front end is open, so it can stay on.
+amixer -q -c$CARD cset name='PRI_MI2S_RX Voice Mixer VoiceMMode1' 1
+amixer -q -c$CARD cset name='VoiceMMode1 Capture Mixer TX_CODEC_DMA_TX_3' 1
+
+in_call=0
+while :; do
+	cell=0 voip=0
+	if grep -q '^state:' $PCM 2>/dev/null; then cell=1
+	elif [ "$(num $USER_DIR/voip 0)" = 1 ]; then voip=1
+	fi
+	if [ $cell = 1 ] || [ $voip = 1 ]; then
+		[ $in_call = 0 ] && logger -t earpiece-callmode "call started (voip=$voip)"
+		in_call=1
+		if [ $voip = 1 ]; then
+			g=$VOIP_GAIN
+		else
+			vol=$(num $USER_DIR/volume 100)
+			[ $vol -gt 100 ] && vol=100
+			g=$(( GAIN_MIN + (GAIN_MAX - GAIN_MIN) * vol / 100 ))
+		fi
+		# Re-checked every round: DAPM powers amps back up when another stream starts.
+		if [ "$(num $USER_DIR/speaker 0)" = 1 ]; then
+			on=$SPK off=$EAR
+		else
+			on=$EAR off=$SPK
+		fi
+		gain $on $g
+		pwup $on
+		pwdn $off
+	elif [ $in_call = 1 ]; then
+		logger -t earpiece-callmode "call ended"
+		# DAPM still has both amps powered here; it powers them down itself after
+		# pmdown_time if nothing else is playing.
+		gain $EAR $NORMAL_GAIN
+		gain $SPK $NORMAL_GAIN
+		pwup $EAR
+		pwup $SPK
+		in_call=0
+	else
+		# media: keep both amps at MEDIA_GAIN (only writes when it differs)
+		gain $EAR $NORMAL_GAIN
+		gain $SPK $NORMAL_GAIN
+	fi
+	sleep 0.5
+done

@@ -1,0 +1,26 @@
+From: notrealOS <53965041+notrealdotmp4@users.noreply.github.com>
+Subject: [PATCH] software_isp: debayer_egl: Meter the whole visible frame
+
+The stats window was only sized, never positioned, so AGC/AWB looked at
+the top-left corner of the sensor for any output smaller than the input.
+---
+--- a/src/libcamera/software_isp/debayer_egl.cpp
++++ b/src/libcamera/software_isp/debayer_egl.cpp
+@@ -355,10 +355,14 @@
+ 	}
+ 
+ 	/*
+-	 * Don't pass x,y from window_ since process() already adjusts for it.
+-	 * But crop the window to 2/3 of its width and height for speedup.
++	 * process() hands the whole input buffer to the stats, so the window
++	 * must be in input coordinates. Rectangle(window_.size()) metered only
++	 * the top-left corner of the sensor (e.g. 1920x1080 of 4080x3072),
++	 * which left scenes with a dark corner badly overexposed. Meter the
++	 * whole area the output shows instead.
+ 	 */
+-	stats_->setWindow(quadBayer_ ? window_ : Rectangle(window_.size()));
++	stats_->setWindow(quadBayer_ ? window_
++				     : quadBayerStatsWindow(inputCfg.size, outputCfg.size));
+ 
+ 	inputBufferCount_ = inputCfg.bufferCount;
+ 	outputBufferCount_ = outputCfg.bufferCount;

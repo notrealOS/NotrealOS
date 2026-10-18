@@ -1,0 +1,26 @@
+From: notrealOS <53965041+notrealdotmp4@users.noreply.github.com>
+Subject: [PATCH] ipa: simple: agc: Converge exposure in a few steps
+
+The proportional step (max ~3-8 % per update, updates every ~9 frames)
+left daylight shots overexposed for 10+ seconds after starting at max gain.
+---
+--- a/src/ipa/simple/algorithms/agc.cpp	2026-10-10 17:01:34.400008317 +0200
++++ b/src/ipa/simple/algorithms/agc.cpp	2026-10-10 17:01:34.413988285 +0200
+@@ -89,9 +89,14 @@
+ 	 * determines the direction: positive error means too dark (increase),
+ 	 * negative means too bright (decrease).
+ 	 */
+-	float step = std::clamp(static_cast<float>(error) * kExpProportionalGain,
+-				-kExpMaxStep, kExpMaxStep);
+-	float factor = 1.0f + step;
++	/*
++	 * Converge in a few updates instead of ~3 % per update: AGC only runs
++	 * every few frames, so starting from max gain in daylight the old
++	 * proportional step stayed overexposed for 10+ s and early photos came
++	 * out blown. Use the MSV ratio (MSV ~ 0.5 + 5 * mean), damped and clamped.
++	 */
++	const double ratio = (target - 0.5) / std::max(exposureMSV - 0.5, 0.05);
++	float factor = std::clamp(static_cast<float>(std::pow(ratio, 0.7)), 0.5f, 1.6f);
+ 
+ 	if (factor > 1.0f) {
+ 		/* Scene too dark: increase exposure first, then gain. */

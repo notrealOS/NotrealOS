@@ -1,0 +1,3 @@
+# Exact strings tools/scan.py accepts: public credits and project addresses, never private data.
+luca.weiss@fairphone.com
+53965041+notrealdotmp4@users.noreply.github.com

@@ -1,0 +1,48 @@
+From: notrealOS <53965041+notrealdotmp4@users.noreply.github.com>
+Subject: [PATCH] libcamera: Add Sony IMX766 sensor helper and properties
+
+Nothing Phone (1) main camera.
+---
+diff -urN a/src/ipa/libipa/camera_sensor_helper.cpp b/src/ipa/libipa/camera_sensor_helper.cpp
+--- a/src/ipa/libipa/camera_sensor_helper.cpp	2026-10-13 09:05:53.452513212 +0200
++++ b/src/ipa/libipa/camera_sensor_helper.cpp	2026-10-13 09:05:53.531548225 +0200
+@@ -639,6 +639,19 @@
+ };
+ REGISTER_CAMERA_SENSOR_HELPER("imx415", CameraSensorHelperImx415)
+ 
++class CameraSensorHelperImx766 : public CameraSensorHelper
++{
++public:
++	CameraSensorHelperImx766()
++	{
++		/* From the vendor module data: 0x40 at 10bits. */
++		blackLevel_ = 4096;
++		/* gain = 16384 / (16384 - code) */
++		gain_ = AnalogueGainLinear{ 0, 16384, -1, 16384 };
++	}
++};
++REGISTER_CAMERA_SENSOR_HELPER("imx766", CameraSensorHelperImx766)
++
+ class CameraSensorHelperImx462 : public CameraSensorHelperImx290
+ {
+ };
+diff -urN a/src/libcamera/sensor/camera_sensor_properties.cpp b/src/libcamera/sensor/camera_sensor_properties.cpp
+--- a/src/libcamera/sensor/camera_sensor_properties.cpp	2026-10-13 09:05:53.452756079 +0200
++++ b/src/libcamera/sensor/camera_sensor_properties.cpp	2026-10-13 09:05:53.531885950 +0200
+@@ -277,6 +277,16 @@
+ 				.hblankDelay = 2
+ 			},
+ 		} },
++		{ "imx766", {
++			.unitCellSize = { 1000, 1000 },
++			.testPatternModes = {},
++			.sensorDelays = {
++				.exposureDelay = 2,
++				.gainDelay = 2,
++				.vblankDelay = 2,
++				.hblankDelay = 2
++			},
++		} },
+ 		{ "imx415", {
+ 			.unitCellSize = { 1450, 1450 },
+ 			.testPatternModes = {},

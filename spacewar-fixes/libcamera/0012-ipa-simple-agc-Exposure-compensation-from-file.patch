@@ -1,0 +1,101 @@
+From: notrealOS <53965041+notrealdotmp4@users.noreply.github.com>
+Subject: [PATCH] ipa: simple: agc: Exposure compensation from a file, finer MSV
+
+Read EV from $XDG_RUNTIME_DIR/camera-ev for a slider UI, and measure the
+mean on the full histogram so dark targets are reachable.
+---
+--- a/src/ipa/simple/algorithms/agc.cpp
++++ b/src/ipa/simple/algorithms/agc.cpp
+@@ -10,6 +10,9 @@
+ #include <algorithm>
+ #include <cmath>
+ #include <stdint.h>
++#include <stdio.h>
++#include <stdlib.h>
++#include <string>
+ 
+ #include <libcamera/base/log.h>
+ 
+@@ -74,6 +77,24 @@
+ {
+ }
+ 
++/*
++ * Exposure compensation in stops, set by a UI (e.g. a slider over the camera
++ * app) by writing a number to $XDG_RUNTIME_DIR/camera-ev. Missing file = 0.
++ */
++static double readExposureValue()
++{
++	const char *dir = getenv("XDG_RUNTIME_DIR");
++	std::string path = std::string(dir ? dir : "/tmp") + "/camera-ev";
++	FILE *f = fopen(path.c_str(), "r");
++	if (!f)
++		return 0.0;
++	double ev = 0.0;
++	if (fscanf(f, "%lf", &ev) != 1)
++		ev = 0.0;
++	fclose(f);
++	return std::clamp(ev, -4.0, 2.0);
++}
++
+ void Agc::updateExposure(IPAContext &context, IPAFrameContext &frameContext,
+ 			 double exposureMSV, double highShare)
+ {
+@@ -92,9 +113,13 @@
+ 	if (highShare > kHighlightShare)
+ 		target = std::max<double>(kExposureTargetMin,
+ 					  target - (highShare - kHighlightShare) * 5.0);
++	const double ev = readExposureValue();
++	target = 0.5 + (target - 0.5) * std::exp2(ev);
+ 	double error = target - exposureMSV;
++	const double ratio = (target - 0.5) / std::max(exposureMSV - 0.5, 0.002);
+ 
+-	if (std::abs(error) <= kExposureSatisfactory)
++	/* Relative hysteresis, so it also holds for the small targets of -EV. */
++	if (std::abs(ratio - 1.0) <= 0.12)
+ 		return;
+ 
+ 	/*
+@@ -108,14 +133,13 @@
+ 	 * proportional step stayed overexposed for 10+ s and early photos came
+ 	 * out blown. Use the MSV ratio (MSV ~ 0.5 + 5 * mean), damped and clamped.
+ 	 */
+-	const double ratio = (target - 0.5) / std::max(exposureMSV - 0.5, 0.05);
+ 	/*
+ 	 * Far from the target take the full ratio so a camera opened in daylight
+ 	 * at max gain settles in about a second; damp only the last steps.
+ 	 * With much of the frame in the top bin the MSV underestimates how
+ 	 * overexposed it is, so cut harder.
+ 	 */
+-	const double damp = std::abs(error) > 0.5 ? 1.0 : 0.8;
++	const double damp = std::abs(std::log2(ratio)) > 0.5 ? 1.0 : 0.8;
+ 	float factor = std::clamp(static_cast<float>(std::pow(ratio, damp)), 0.25f, 2.0f);
+ 	if (highShare > 0.4)
+ 		factor = std::min(factor, 0.25f);
+@@ -155,7 +179,7 @@
+ 	context.activeState.agc.again = again;
+ 
+ 	LOG(IPASoftExposure, Debug)
+-		<< "exposureMSV " << exposureMSV << " high " << highShare
++		<< "exposureMSV " << exposureMSV << " high " << highShare << " ev " << ev
+ 		<< " target " << target
+ 		<< " error " << error << " factor " << factor
+ 		<< " exp " << exposure << " again " << again;
+@@ -225,7 +249,16 @@
+ 		num += exposureBins[i] * (i + 1);
+ 	}
+ 
+-	float exposureMSV = (denom == 0 ? 0 : static_cast<float>(num) / denom);
++	/*
++	 * The 5-bin MSV bottoms out at 1.0 (everything in the lowest bin), which
++	 * hides how dark a frame is and makes -EV targets unreachable. Use the
++	 * mean of the full histogram on the same scale (MSV ~ 0.5 + 5 * mean).
++	 */
++	(void)num;
++	double sum = 0.0;
++	for (unsigned int i = 0; i < histogramSize; i++)
++		sum += histogram[blackLevelHistIdx + i] * (i + 0.5) / histogramSize;
++	float exposureMSV = denom == 0 ? 0 : 0.5 + kExposureBinsCount * sum / denom;
+ 	double highShare = denom == 0 ? 0.0
+ 				      : static_cast<double>(exposureBins[kExposureBinsCount - 1]) / denom;
+ 	updateExposure(context, frameContext, exposureMSV, highShare);

@@ -1,0 +1,3 @@
+#!/bin/sh
+# Let the feedbackd group drive the Glyph LEDs
+for f in /sys/class/leds/glyph:*/brightness; do chgrp feedbackd "$f"; chmod g+w "$f"; done

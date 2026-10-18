@@ -1,0 +1,86 @@
+From: notrealOS <53965041+notrealdotmp4@users.noreply.github.com>
+Subject: [PATCH] ipa: simple: agc: Lower the exposure target and protect highlights
+
+The raw-histogram target of 2.5 gave mid-tones ~190/255 after gamma and
+blew out windows and sky.
+---
+--- a/src/ipa/simple/algorithms/agc.cpp
++++ b/src/ipa/simple/algorithms/agc.cpp
+@@ -27,10 +27,19 @@
+ static constexpr unsigned int kExposureBinsCount = 5;
+ 
+ /*
+- * The exposure is optimal when the mean sample value of the histogram is
+- * in the middle of the range.
++ * The histogram is linear raw data, but the output goes through gamma, the
++ * colour gains and the CCM, so a raw mean in the middle of the range ends up
++ * far too bright. Aim for a raw mean of ~25 % instead.
+  */
+-static constexpr float kExposureOptimal = kExposureBinsCount / 2.0;
++static constexpr float kExposureTarget = 1.75;
++
++/*
++ * Highlight protection: when more than this share of the pixels sits in the
++ * top histogram bin, lower the target (down to kExposureTargetMin) so bright
++ * areas such as windows and sky keep some detail.
++ */
++static constexpr float kHighlightShare = 0.04;
++static constexpr float kExposureTargetMin = 1.2;
+ 
+ /*
+  * This implements the hysteresis for the exposure adjustment.
+@@ -65,7 +74,8 @@
+ {
+ }
+ 
+-void Agc::updateExposure(IPAContext &context, IPAFrameContext &frameContext, double exposureMSV)
++void Agc::updateExposure(IPAContext &context, IPAFrameContext &frameContext,
++			 double exposureMSV, double highShare)
+ {
+ 	int32_t &exposure = frameContext.sensor.exposure;
+ 	double &again = frameContext.sensor.gain;
+@@ -78,7 +88,10 @@
+ 	 * keeps 2.5 for a gain of 1.0.
+ 	 */
+ 	const float boost = std::clamp(context.activeState.awb.gains.g(), 1.0f, 4.0f);
+-	const double target = 0.5 + (kExposureOptimal - 0.5) / boost;
++	double target = 0.5 + (kExposureTarget - 0.5) / boost;
++	if (highShare > kHighlightShare)
++		target = std::max<double>(kExposureTargetMin,
++					  target - (highShare - kHighlightShare) * 3.0);
+ 	double error = target - exposureMSV;
+ 
+ 	if (std::abs(error) <= kExposureSatisfactory)
+@@ -133,7 +146,8 @@
+ 	context.activeState.agc.again = again;
+ 
+ 	LOG(IPASoftExposure, Debug)
+-		<< "exposureMSV " << exposureMSV << " target " << target
++		<< "exposureMSV " << exposureMSV << " high " << highShare
++		<< " target " << target
+ 		<< " error " << error << " factor " << factor
+ 		<< " exp " << exposure << " again " << again;
+ }
+@@ -203,7 +217,9 @@
+ 	}
+ 
+ 	float exposureMSV = (denom == 0 ? 0 : static_cast<float>(num) / denom);
+-	updateExposure(context, frameContext, exposureMSV);
++	double highShare = denom == 0 ? 0.0
++				      : static_cast<double>(exposureBins[kExposureBinsCount - 1]) / denom;
++	updateExposure(context, frameContext, exposureMSV, highShare);
+ }
+ 
+ REGISTER_IPA_ALGORITHM(Agc, "Agc")
+--- a/src/ipa/simple/algorithms/agc.h
++++ b/src/ipa/simple/algorithms/agc.h
+@@ -25,7 +25,8 @@
+ 		     ControlList &metadata) override;
+ 
+ private:
+-	void updateExposure(IPAContext &context, IPAFrameContext &frameContext, double exposureMSV);
++	void updateExposure(IPAContext &context, IPAFrameContext &frameContext,
++			    double exposureMSV, double highShare);
+ };
+ 
+ } /* namespace ipa::soft::algorithms */

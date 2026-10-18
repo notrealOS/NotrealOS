@@ -1,0 +1,9 @@
+#!/sbin/openrc-run
+
+name="afd"
+description="Power and position the rear camera focus motor (Nothing Phone 1)"
+
+command="/usr/local/sbin/afd"
+supervisor=supervise-daemon
+output_log="/var/log/afd.log"
+error_log="/var/log/afd.log"
