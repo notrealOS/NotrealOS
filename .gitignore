@@ -1,0 +1,11 @@
+__pycache__/
+*.pyc
+*.before*
+*.bak*
+*.orig
+*.log
+core
+# personal files that must never be committed
+private-patterns
+github-token
+pc.json

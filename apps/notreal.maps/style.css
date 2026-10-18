@@ -1,0 +1,107 @@
+/* notarealMaps — vapor look shared with vaporMail / the keyboard */
+window, .setup { font-family: var(--nr-font); color: var(--nr-fg); }
+window.background { background-color: var(--nr-bg); }
+.setup { padding: 40px 24px; }
+.app-title { color: var(--nr-bg); background: var(--nr-gradient);
+             padding: 6px 14px; border-radius: 6px; letter-spacing: 5px; font-weight: bold; }
+.hint { color: alpha(var(--nr-accent), 0.75); }
+.key-entry { padding: 10px; }
+
+.top { margin: 10px 12px 0 12px; }
+.search-row { background: alpha(var(--nr-bg), 0.94); border: 1px solid alpha(var(--nr-accent), 0.35);
+              border-radius: 14px; padding: 4px 6px; box-shadow: 0 4px 18px rgba(0, 0, 0, 0.45); }
+.search-row button { min-width: 44px; min-height: 44px; }
+entry.search, .search { background: none; box-shadow: none; border: none; min-height: 44px; font-size: 12pt; }
+.suggestions { background: alpha(var(--nr-bg), 0.97); border-radius: 12px; margin-top: 6px;
+               border: 1px solid alpha(var(--nr-accent), 0.25); }
+.suggestions > row { padding: 0; background: none; }
+.suggestions > row:active { background: alpha(var(--nr-accent), 0.14); }
+.sugg-row { padding: 12px 14px; border-bottom: 1px solid alpha(var(--nr-pink), 0.10); }
+.sugg-ico { font-size: 13pt; }
+.sugg-name { color: var(--nr-fg); font-weight: bold; }
+.sugg-sub { color: alpha(var(--nr-accent), 0.70); font-size: 9.5pt; }
+
+button.fab { min-width: 54px; min-height: 54px; border-radius: 27px; padding: 0;
+             background: alpha(var(--nr-bg), 0.94); color: var(--nr-primary);
+             border: 1px solid alpha(var(--nr-primary), 0.35); box-shadow: 0 3px 12px rgba(0, 0, 0, 0.5); }
+button.fab.on { background: alpha(var(--nr-primary), 0.25); color: var(--nr-fg-bright); }
+button.fab:active { background: alpha(var(--nr-primary), 0.20); }
+.fab-n { color: var(--nr-pink); font-weight: bold; font-size: 13pt; }
+
+.panel { background: alpha(var(--nr-bg), 0.98); border-radius: 18px 18px 0 0;
+         border-top: 1px solid alpha(var(--nr-accent), 0.35); box-shadow: 0 -6px 22px rgba(0, 0, 0, 0.5); }
+.handle { min-width: 46px; min-height: 5px; border-radius: 3px; background: alpha(var(--nr-accent), 0.45);
+          margin: 8px 0 4px 0; padding: 0 0; }
+.panel-body { padding: 6px 16px 22px 16px; }
+.section { color: alpha(var(--nr-accent), 0.65); letter-spacing: 3px; font-size: 9.5pt; margin-top: 6px; }
+.pc-name { font-size: 15pt; font-weight: bold; color: var(--nr-fg-bright); }
+.pc-meta { color: var(--nr-accent); }
+.pc-addr { color: alpha(var(--nr-fg), 0.80); }
+.pc-summary { color: alpha(var(--nr-fg), 0.85); font-style: italic; }
+.open, .p-open { color: var(--nr-mint); }
+.closed, .p-closed { color: var(--nr-hot-pink); }
+.actions { margin: 6px 0; }
+button.primary-btn { background: var(--nr-gradient); color: var(--nr-bg);
+                     font-weight: bold; letter-spacing: 2px; border-radius: 22px; min-height: 44px; padding: 0 18px; }
+button.primary-btn label, button.primary-btn image { color: var(--nr-bg); }
+button.act { min-width: 46px; min-height: 46px; border-radius: 23px; background: alpha(var(--nr-accent), 0.14); }
+.photo { border-radius: 10px; }
+expander.hours title { color: var(--nr-primary); }
+.hour { color: alpha(var(--nr-fg), 0.75); padding: 2px 0; }
+.hour.today { color: var(--nr-fg-bright); font-weight: bold; }
+.review { padding: 8px 0; border-bottom: 1px solid alpha(var(--nr-pink), 0.10); }
+.r-head { color: var(--nr-yellow); font-size: 9.5pt; }
+.r-text { color: alpha(var(--nr-fg), 0.85); }
+button.place-row { background: none; padding: 10px 2px; border-bottom: 1px solid alpha(var(--nr-pink), 0.10); border-radius: 0; }
+.p-name { color: var(--nr-fg-bright); font-weight: bold; }
+.p-meta { color: var(--nr-accent); font-size: 9.5pt; }
+.p-addr { color: alpha(var(--nr-fg), 0.65); font-size: 9.5pt; }
+button.result-pin { background: var(--nr-bg); color: var(--nr-yellow); border: 2px solid var(--nr-pink); border-radius: 12px;
+                    min-height: 0; min-width: 0; padding: 2px 7px; font-size: 9pt; }
+.pin { color: var(--nr-pink); font-size: 22pt; text-shadow: 0 0 8px alpha(var(--nr-pink), 0.8); }
+
+.modes { margin: 4px 0 8px 0; }
+togglebutton.mode { min-width: 52px; min-height: 44px; font-size: 15pt; background: alpha(var(--nr-accent), 0.08);
+                    border-radius: 12px; }
+togglebutton.mode:checked { background: alpha(var(--nr-primary), 0.28); }
+.route-row { padding: 10px 8px; border-radius: 12px; border: 1px solid transparent; }
+.route-row.chosen { border-color: alpha(var(--nr-accent), 0.45); background: alpha(var(--nr-accent), 0.07); }
+.r-time { font-size: 15pt; font-weight: bold; }
+.r-time.free, .r-traffic.free { color: var(--nr-primary); }
+.r-time.slow, .r-traffic.slow { color: var(--nr-orange); }
+.r-time.jam, .r-traffic.jam { color: var(--nr-hot-pink); }
+.r-sub { color: alpha(var(--nr-fg), 0.70); font-size: 9.5pt; }
+.r-step { color: alpha(var(--nr-fg), 0.85); font-size: 9.5pt; }
+.r-dir { color: var(--nr-orange); font-size: 9.5pt; font-weight: bold; }
+
+.banner { margin: 10px 10px 0 10px; padding: 14px 16px; border-radius: 18px;
+          background: linear-gradient(135deg, alpha(var(--nr-surface), 0.97), alpha(var(--nr-bg), 0.97));
+          border: 1px solid alpha(var(--nr-pink), 0.45); box-shadow: 0 6px 22px rgba(0, 0, 0, 0.55); }
+.b-icon { font-size: 34pt; color: var(--nr-primary); min-width: 60px; }
+.b-dist { font-size: 22pt; font-weight: bold; color: var(--nr-fg-bright); }
+.b-text { font-size: 12pt; color: var(--nr-fg); }
+.b-then { color: var(--nr-accent); margin-top: 6px; padding-top: 6px; border-top: 1px solid alpha(var(--nr-accent), 0.25); }
+.navbar { background: alpha(var(--nr-bg), 0.97); padding: 12px 16px 18px 16px;
+          border-top: 1px solid alpha(var(--nr-accent), 0.35); }
+button.end-btn.small { min-height: 36px; padding: 0 14px; font-size: 10pt; letter-spacing: 1px; }
+button.end-btn { background: alpha(var(--nr-hot-pink), 0.22); color: var(--nr-hot-pink); font-weight: bold; letter-spacing: 2px;
+                 border-radius: 22px; min-height: 48px; padding: 0 20px; }
+.n-eta { font-size: 14pt; font-weight: bold; color: var(--nr-mint); }
+.n-left { color: alpha(var(--nr-fg), 0.75); }
+.n-speed { font-size: 12pt; color: var(--nr-yellow); font-weight: bold; }
+.menu { padding: 6px; }
+
+/* saved places */
+button.saved-pin { background: alpha(var(--nr-bg), 0.85); color: var(--nr-yellow); border: 1px solid alpha(var(--nr-yellow), 0.6);
+                   border-radius: 999px; min-height: 0; min-width: 0; padding: 0 5px; font-size: 9pt;
+                   text-shadow: 0 0 6px alpha(var(--nr-yellow), 0.7); }
+button.act.star label { color: var(--nr-yellow); font-size: 16pt; }
+expander.saved-list > title { color: var(--nr-pink); font-weight: bold; padding: 8px 2px; letter-spacing: 1px; }
+
+/* ‹ N RESULTS on a place card opened from a search (10-13) */
+button.back-results { background: none; box-shadow: none; padding: 6px 10px 6px 2px; min-height: 40px;
+  color: var(--nr-primary); letter-spacing: 2px; font-weight: bold; }
+button.back-results:active { background: alpha(var(--nr-primary), 0.12); }
+/* opening times in the result list (10-13): after .p-meta so the colour wins */
+.p-meta.p-open { color: var(--nr-mint); }
+.p-meta.p-closed { color: var(--nr-hot-pink); }

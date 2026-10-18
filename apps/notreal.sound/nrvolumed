@@ -1,0 +1,7 @@
+#!/bin/sh
+# nrvolumed: separate notification volume, restarted if it dies (e.g. PulseAudio restart)
+LOG="${XDG_RUNTIME_DIR:-/tmp}/nrvolumed.log"
+while true; do
+    python3 "$(dirname "$(readlink -f "$0")")"/nrvolumed.py >>"$LOG" 2>&1
+    sleep 3
+done

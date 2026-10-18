@@ -1,0 +1,7 @@
+/* Sound (nrvolume): big touch targets; colours come from the shared theme */
+.vol-btn { min-width: 52px; min-height: 52px; }
+.vol-btn image { -gtk-icon-size: 22px; }
+.vol-scale { min-height: 52px; }
+.vol-scale slider { min-width: 26px; min-height: 26px; }
+.vol-scale trough { min-height: 6px; }
+.vol-scale value { min-width: 48px; }

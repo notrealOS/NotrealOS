@@ -1,0 +1,2 @@
+#!/bin/sh
+exec env -u LD_PRELOAD python3 "$(dirname "$(readlink -f "$0")")"/nrvolume.py "$@"

@@ -1,0 +1,44 @@
+/* notarealGallery: same chrome as notarealChat / vaporMail; every color from the theme. */
+window, dialog, popover, label, button, row, toast { font-family: var(--nr-font); }
+window.background {
+  background-color: var(--nr-bg);
+  background-image: linear-gradient(180deg, alpha(var(--nr-bg), 0.0) 55%, alpha(var(--nr-glow), 0.16) 100%);
+}
+headerbar { box-shadow: none; min-height: 58px; }
+headerbar button { min-width: 48px; min-height: 48px; }
+.vapor-bar { border-bottom: 1px solid alpha(var(--nr-pink), 0.35); }
+.app-title {
+  font-weight: bold; letter-spacing: 6px; font-size: 11pt; color: var(--nr-bg);
+  background: var(--nr-gradient); padding: 2px 12px; border-radius: 6px;
+}
+button.flat, headerbar button { background: none; box-shadow: none; color: alpha(var(--nr-accent), 0.85); min-width: 48px; min-height: 48px; }
+button.flat:active, headerbar button:active { background: alpha(var(--nr-accent), 0.16); border-radius: 6px; }
+
+button.filter {
+  background: none; box-shadow: none; border: 1px solid alpha(var(--nr-accent), 0.28); border-radius: 16px;
+  color: alpha(var(--nr-accent), 0.85); min-height: 36px; padding: 0 12px; letter-spacing: 2px; font-size: 9.5pt;
+}
+button.filter:checked { background: alpha(var(--nr-accent), 0.22); color: var(--nr-fg); border-color: var(--nr-accent); }
+
+gridview.photo-grid { background: none; padding: 2px; }
+gridview.photo-grid > child { padding: 2px; background: none; }
+gridview.photo-grid > child:active picture.cell { opacity: 0.7; }
+picture.cell { background: alpha(var(--nr-surface), 0.8); border-radius: 4px; }
+.badge { color: var(--nr-white); font-size: 10pt; text-shadow: 0 0 3px black; }
+.cloud { color: var(--nr-primary); font-size: 10pt; text-shadow: 0 0 3px alpha(black, 0.8); }
+.empty { color: alpha(var(--nr-accent), 0.55); letter-spacing: 3px; padding: 40px; }
+
+.bottom-bar { border-top: 1px solid alpha(var(--nr-pink), 0.20); padding-top: 4px; }
+button.pill-btn {
+  background: none; border: 1px solid alpha(var(--nr-primary), 0.55); border-radius: 18px;
+  color: var(--nr-primary); min-height: 40px; padding: 0 16px; letter-spacing: 3px; font-weight: bold;
+}
+button.pill-btn:active { background: alpha(var(--nr-primary), 0.16); }
+.status { color: alpha(var(--nr-fg), 0.75); font-size: 9.5pt; letter-spacing: 1px; }
+
+.viewer { background: var(--nr-bg-deep); }
+.viewer-bar { background: alpha(var(--nr-bg), 0.78); border-radius: 12px; padding: 2px 6px; }
+.viewer-title { color: var(--nr-fg); letter-spacing: 2px; font-size: 10pt; }
+.viewer-count { color: alpha(var(--nr-accent), 0.85); font-size: 9.5pt; letter-spacing: 1px; margin-right: 8px; }
+toast { background: alpha(var(--nr-surface), 0.96); color: var(--nr-fg); border: 1px solid alpha(var(--nr-accent), 0.25); }
+toast button { color: var(--nr-primary); background: none; letter-spacing: 2px; }

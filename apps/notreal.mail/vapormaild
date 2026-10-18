@@ -1,0 +1,7 @@
+#!/bin/sh
+# vaporMail background fetch + snooze daemon, restarted if it dies
+LOG="${XDG_RUNTIME_DIR:-/tmp}/vapormaild.log"
+while true; do
+    python3 "$(dirname "$(readlink -f "$0")")"/vapormaild.py >>"$LOG" 2>&1
+    sleep 10
+done

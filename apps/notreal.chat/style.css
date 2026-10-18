@@ -1,0 +1,207 @@
+/* notarealChat: the vapor look of vaporMail / the Stevia keyboard.
+   Navy, CozetteVector, boxless controls, lavender secondary, cyan primary, thin pink lines.
+   Networks: WhatsApp mint, Messenger blue, Instagram pink, SMS amber, Google Voice yellow. */
+window, dialog, popover, label, button, entry, text, textview, row, toast {
+  font-family: var(--nr-font);
+}
+window.background {
+  background-color: var(--nr-bg);
+  background-image: linear-gradient(180deg, alpha(var(--nr-bg), 0.0) 55%, alpha(var(--nr-glow), 0.16) 100%);
+}
+
+/* --- chrome --- */
+headerbar { box-shadow: none; min-height: 58px; }
+headerbar button { min-width: 48px; min-height: 48px; padding: 0 6px; }
+headerbar button image { -gtk-icon-size: 20px; }
+.vapor-bar { border-bottom: 1px solid alpha(var(--nr-pink), 0.35); }
+.app-title {
+  font-weight: bold; letter-spacing: 6px; font-size: 11pt; color: var(--nr-bg);
+  background: var(--nr-gradient);
+  padding: 2px 12px; border-radius: 6px;
+}
+.sheet-title { letter-spacing: 4px; color: alpha(var(--nr-accent), 0.85); }
+button.flat, headerbar button, menubutton > button { background: none; box-shadow: none; color: alpha(var(--nr-accent), 0.80); }
+button.flat:active, headerbar button:active, button.flat:checked { background: alpha(var(--nr-accent), 0.16); border-radius: 6px; }
+searchbar > revealer > box { background: none; border-bottom: 1px solid alpha(var(--nr-pink), 0.20); }
+entry.find, .find {
+  background: none; box-shadow: none; border: none; border-radius: 0; outline: none;
+  border-bottom: 1px solid alpha(var(--nr-pink), 0.35);
+  min-height: 48px; color: var(--nr-fg); caret-color: var(--nr-primary); font-size: 12.5pt;
+}
+entry.find image { color: alpha(var(--nr-accent), 0.70); }
+.fab {
+  background: alpha(var(--nr-bg), 0.92); border: 1px solid alpha(var(--nr-primary), 0.45);
+  border-radius: 28px; padding: 15px 24px; box-shadow: 0 0 18px alpha(var(--nr-accent), 0.28); color: var(--nr-primary);
+}
+.fab-label { color: var(--nr-primary); letter-spacing: 3px; }
+.fab:active { background: alpha(var(--nr-primary), 0.16); }
+toast { background: alpha(var(--nr-surface), 0.96); color: var(--nr-fg); border: 1px solid alpha(var(--nr-accent), 0.25); min-height: 52px; }
+toast button { color: var(--nr-primary); background: none; letter-spacing: 2px; min-height: 44px; padding: 0 14px; }
+.net-status { color: var(--nr-pink); letter-spacing: 2px; padding: 6px; font-size: 9.5pt; }
+.empty { color: alpha(var(--nr-accent), 0.45); letter-spacing: 3px; padding: 40px; }
+.status { color: var(--nr-primary); padding: 8px; letter-spacing: 1px; }
+
+/* avatars: Adwaita's palette swapped for the vapor one */
+avatar { color: var(--nr-bg); font-weight: bold; }
+avatar.color1, avatar.color8 { background: var(--nr-pink); }
+avatar.color2, avatar.color9 { background: var(--nr-accent); }
+avatar.color3, avatar.color10 { background: var(--nr-primary); }
+avatar.color4, avatar.color11 { background: var(--nr-mint); }
+avatar.color5, avatar.color12 { background: var(--nr-yellow); }
+avatar.color6, avatar.color13 { background: var(--nr-violet); }
+avatar.color7, avatar.color14 { background: var(--nr-orange); }
+
+/* --- network chips / filter row --- */
+.chip { font-size: 8pt; letter-spacing: 1px; padding: 1px 6px; border-radius: 4px; font-weight: bold; color: var(--nr-bg); }
+.chip.net-wa { background: var(--nr-mint); } .chip.net-fb { background: var(--nr-blue); } .chip.net-ig { background: var(--nr-pink); }
+.chip.net-sms { background: var(--nr-orange); } .chip.net-gv { background: var(--nr-yellow); } .chip.net-mx { background: var(--nr-accent); }
+.net-text-wa { color: var(--nr-mint); } .net-text-fb { color: var(--nr-blue); } .net-text-ig { color: var(--nr-pink); }
+.net-text-sms { color: var(--nr-orange); } .net-text-gv { color: var(--nr-yellow); } .net-text-mx { color: var(--nr-accent); }
+.filters { margin-bottom: 2px; }
+button.filter {
+  background: none; box-shadow: none; border: 1px solid alpha(var(--nr-accent), 0.28); border-radius: 16px;
+  color: alpha(var(--nr-accent), 0.85); min-height: 36px; padding: 0 14px; letter-spacing: 2px; font-size: 9.5pt;
+}
+button.filter:checked { background: alpha(var(--nr-accent), 0.22); color: var(--nr-fg); border-color: var(--nr-accent); }
+button.filter.net-wa:checked { background: alpha(var(--nr-mint), 0.20); border-color: var(--nr-mint); color: var(--nr-mint); }
+button.filter.net-fb:checked { background: alpha(var(--nr-blue), 0.20); border-color: var(--nr-blue); color: var(--nr-blue); }
+button.filter.net-sms:checked { background: alpha(var(--nr-orange), 0.20); border-color: var(--nr-orange); color: var(--nr-orange); }
+button.filter.net-gv:checked { background: alpha(var(--nr-yellow), 0.16); border-color: var(--nr-yellow); color: var(--nr-yellow); }
+button.filter.net-ig:checked { background: alpha(var(--nr-pink), 0.20); border-color: var(--nr-pink); color: var(--nr-pink); }
+
+/* --- chat list --- */
+.chat-list { background: none; }
+.chat-list > row { padding: 0; background: none; border-bottom: 1px solid alpha(var(--nr-pink), 0.10); }
+.chat-list > row:hover, .chat-list > row:focus { background: none; outline: none; }
+.chat-list > row:active .chat-row { background-color: alpha(var(--nr-fg), 0.08); }
+.chat-row { background-color: var(--nr-bg); padding: 13px 16px; box-shadow: inset 3px 0 0 transparent; }
+.chat-row.net-wa { box-shadow: inset 3px 0 0 alpha(var(--nr-mint), 0.55); }
+.chat-row.net-fb { box-shadow: inset 3px 0 0 alpha(var(--nr-blue), 0.55); }
+.chat-row.net-sms { box-shadow: inset 3px 0 0 alpha(var(--nr-orange), 0.55); }
+.chat-row.net-gv { box-shadow: inset 3px 0 0 alpha(var(--nr-yellow), 0.45); }
+.chat-row.net-ig { box-shadow: inset 3px 0 0 alpha(var(--nr-pink), 0.55); }
+.chat-name { color: alpha(var(--nr-fg), 0.88); font-size: 12pt; }
+.chat-time { color: alpha(var(--nr-accent), 0.55); font-size: 9pt; }
+.chat-preview { color: alpha(var(--nr-fg), 0.45); font-size: 10pt; }
+.unread .chat-name { color: var(--nr-fg-bright); font-weight: bold; }
+.unread .chat-preview { color: alpha(var(--nr-fg), 0.80); }
+.unread .chat-time { color: var(--nr-primary); }
+.badge {
+  background: var(--nr-primary); color: var(--nr-bg); font-weight: bold; font-size: 9pt;
+  min-width: 22px; min-height: 22px; border-radius: 11px; padding: 0 5px;
+}
+.muted-icon { color: alpha(var(--nr-accent), 0.45); }
+.archived-row { padding: 14px 20px; color: alpha(var(--nr-accent), 0.75); }
+.arch-title { letter-spacing: 4px; font-size: 10pt; }
+.arch-count { color: alpha(var(--nr-accent), 0.55); font-size: 9.5pt; }
+
+.swipe-under { padding: 0 22px; letter-spacing: 3px; font-size: 11pt; }
+.swipe-under.read { background: linear-gradient(90deg, alpha(var(--nr-primary), 0.30), alpha(var(--nr-primary), 0.05)); color: var(--nr-primary); }
+.swipe-under.archive { background: linear-gradient(270deg, alpha(var(--nr-pink), 0.32), alpha(var(--nr-pink), 0.05)); color: var(--nr-pink); }
+.swipe-under.read.armed { background: linear-gradient(90deg, alpha(var(--nr-primary), 0.55), alpha(var(--nr-primary), 0.15)); color: var(--nr-fg); }
+.swipe-under.archive.armed { background: linear-gradient(270deg, alpha(var(--nr-pink), 0.60), alpha(var(--nr-pink), 0.15)); color: var(--nr-fg); }
+
+popover > contents { padding: 6px; }
+.menu-item { padding: 12px 14px; min-height: 40px; color: var(--nr-fg); }
+.react-pick { font-size: 18pt; min-width: 46px; min-height: 46px; padding: 0; }
+
+/* --- chat page --- */
+.head-name { color: var(--nr-fg); font-size: 11.5pt; font-weight: bold; }
+.head-sub { font-size: 8.5pt; letter-spacing: 1px; }
+.messages { background: none; padding: 6px 0 10px 0; }
+.messages > row { background: none; padding: 0; }
+.messages > row:hover, .messages > row:focus { background: none; outline: none; }
+.day { color: alpha(var(--nr-accent), 0.55); letter-spacing: 4px; font-size: 8.5pt; padding: 16px 0 8px 0; }
+.notice { color: alpha(var(--nr-accent), 0.55); font-size: 9pt; padding: 6px 30px; }
+.line { margin: 6px 12px 0 12px; }
+.line.grouped { margin-top: 2px; }
+.bubble { padding: 8px 12px 5px 12px; border-radius: 16px; min-width: 60px; }
+.bubble.theirs { background: var(--nr-surface); border: 1px solid alpha(var(--nr-fg), 0.10); border-bottom-left-radius: 4px; }
+.bubble.mine { background: alpha(var(--nr-primary), 0.16); border: 1px solid alpha(var(--nr-primary), 0.28); border-bottom-right-radius: 4px; }
+.bubble.mine.net-wa { background: alpha(var(--nr-mint), 0.14); border-color: alpha(var(--nr-mint), 0.30); }
+.bubble.mine.net-fb { background: alpha(var(--nr-blue), 0.16); border-color: alpha(var(--nr-blue), 0.32); }
+.bubble.mine.net-ig { background: alpha(var(--nr-pink), 0.14); border-color: alpha(var(--nr-pink), 0.30); }
+.bubble.mine.net-sms { background: alpha(var(--nr-orange), 0.13); border-color: alpha(var(--nr-orange), 0.30); }
+.bubble.emoji-only { background: none; border-color: transparent; }
+.bubble .text { color: var(--nr-fg); font-size: 12pt; }
+.bubble .text link, .bubble .text a { color: var(--nr-primary); }
+.emoji-big { font-size: 30pt; }
+.sender { font-size: 9pt; font-weight: bold; }
+.av-0 { color: var(--nr-pink); } .av-1 { color: var(--nr-accent); } .av-2 { color: var(--nr-primary); }
+.av-3 { color: var(--nr-mint); } .av-4 { color: var(--nr-yellow); } .av-5 { color: var(--nr-orange); }
+.quote { border-left: 3px solid var(--nr-accent); background: alpha(var(--nr-bg), 0.55); border-radius: 6px; padding: 4px 8px; }
+.quote-name { color: var(--nr-accent); font-size: 9pt; font-weight: bold; }
+.quote-text { color: alpha(var(--nr-fg), 0.65); font-size: 9.5pt; }
+.foot { color: alpha(var(--nr-fg), 0.45); font-size: 8pt; }
+.tick.seen { color: var(--nr-primary); }
+.tick.failed { color: var(--nr-pink); }
+.deleted { color: alpha(var(--nr-fg), 0.40); font-style: italic; }
+.media { border-radius: 12px; }
+.media-badge { background: alpha(var(--nr-bg), 0.80); color: var(--nr-primary); font-size: 8pt; padding: 1px 6px; border-radius: 4px; margin: 6px; letter-spacing: 1px; }
+.play-badge { font-size: 26pt; color: var(--nr-fg); background: alpha(var(--nr-bg), 0.65); border-radius: 40px; min-width: 64px; min-height: 64px; }
+.play-badge.small { font-size: 16pt; min-width: 40px; min-height: 40px; }
+.file-btn, .audio-btn { background: alpha(var(--nr-bg), 0.45); border-radius: 10px; padding: 10px 12px; color: var(--nr-fg); }
+.file-name { color: var(--nr-fg); font-size: 10pt; }
+.reactions { margin: 2px 14px 0 14px; }
+button.reaction { background: var(--nr-surface); border: 1px solid alpha(var(--nr-accent), 0.25); border-radius: 14px; padding: 0 8px; min-height: 28px; font-size: 11pt; }
+button.reaction.mine { border-color: var(--nr-primary); background: alpha(var(--nr-primary), 0.14); }
+.reply-hint { color: var(--nr-accent); font-size: 18pt; }
+.reply-hint.armed { color: var(--nr-primary); }
+
+/* --- composer (Send on the left for the left thumb) --- */
+.composer { border-top: 1px solid alpha(var(--nr-pink), 0.30); padding: 6px 6px 8px 6px; background: var(--nr-bg); }
+.reply-bar { padding: 4px 8px 6px 12px; color: var(--nr-accent); border-left: 3px solid var(--nr-accent); margin: 0 6px 6px 6px; }
+.reply-bar-text { color: alpha(var(--nr-fg), 0.70); font-size: 9.5pt; }
+.entry-wrap { background: alpha(var(--nr-accent), 0.07); border-radius: 22px; min-height: 46px; }
+textview.entry, textview.entry text { background: none; color: var(--nr-fg); caret-color: var(--nr-primary); font-size: 12pt; }
+.placeholder { color: alpha(var(--nr-accent), 0.45); font-size: 12pt; }
+button.send {
+  min-width: 52px; min-height: 52px; border-radius: 26px; padding: 0;
+  background: var(--nr-primary); color: var(--nr-bg); box-shadow: 0 0 14px alpha(var(--nr-primary), 0.45);
+}
+button.send image { -gtk-icon-size: 22px; }
+button.send:disabled { background: alpha(var(--nr-primary), 0.18); color: alpha(var(--nr-bg), 0.8); box-shadow: none; }
+button.tool { min-width: 46px; min-height: 52px; color: alpha(var(--nr-accent), 0.85); }
+button.tool image { -gtk-icon-size: 22px; }
+selection { background: alpha(var(--nr-accent), 0.30); }
+
+/* --- sheets --- */
+button.send-text { color: var(--nr-primary); letter-spacing: 3px; background: none; min-height: 44px; padding: 0 14px; font-weight: bold; }
+button.send-text:disabled { color: alpha(var(--nr-primary), 0.30); }
+button.browse { padding: 16px 18px; letter-spacing: 2px; color: var(--nr-accent); }
+.photo-grid, .gif-grid { padding: 4px; }
+.photo-grid > flowboxchild, .gif-grid > flowboxchild { padding: 0; }
+.photo-grid overlay.picked { box-shadow: inset 0 0 0 4px var(--nr-primary); }
+.pick-mark { margin: 6px; min-width: 26px; min-height: 26px; border-radius: 13px; font-weight: bold; color: var(--nr-bg); }
+.picked .pick-mark { background: var(--nr-primary); }
+.gif-cell { border-radius: 8px; }
+.gif-note { color: alpha(var(--nr-accent), 0.60); letter-spacing: 2px; padding: 8px 16px; font-size: 9.5pt; }
+
+/* --- new chat --- */
+.people { background: none; }
+.people > row { padding: 0; background: none; border-bottom: 1px solid alpha(var(--nr-pink), 0.10); }
+.people > row:active { background: alpha(var(--nr-accent), 0.12); }
+.person { padding: 13px 16px; }
+.name { color: var(--nr-fg); font-size: 12pt; }
+.nums { color: alpha(var(--nr-accent), 0.60); font-size: 9.5pt; }
+.section { color: alpha(var(--nr-accent), 0.55); letter-spacing: 4px; font-size: 8.5pt; padding: 14px 16px 4px 16px; }
+.num-line { padding: 10px 0 2px 58px; }
+.num-text { color: alpha(var(--nr-fg), 0.70); font-size: 10pt; }
+button.chip-btn { border-radius: 18px; min-height: 40px; padding: 0 14px; font-weight: bold; color: var(--nr-bg); letter-spacing: 1px; }
+button.chip-btn.net-wa { background: var(--nr-mint); }
+button.chip-btn.net-sms { background: var(--nr-orange); }
+button.chip-btn:disabled { background: alpha(var(--nr-accent), 0.15); color: alpha(var(--nr-fg), 0.40); }
+
+/* --- voice messages (hold the mic) --- */
+button.send.recording { background: var(--nr-pink); box-shadow: 0 0 22px alpha(var(--nr-pink), 0.75); }
+.rec-bar { background: var(--nr-surface); border-radius: 22px; padding: 0 16px; min-height: 52px; }
+.rec-bar.cancel { background: alpha(var(--nr-pink), 0.22); }
+.rec-dot { color: var(--nr-pink); font-size: 14pt; }
+.rec-time { color: var(--nr-fg); font-size: 12pt; font-weight: bold; }
+.rec-hint { color: alpha(var(--nr-accent), 0.70); font-size: 9.5pt; }
+.rec-bar.cancel .rec-hint { color: var(--nr-pink); }
+
+/* --- calls --- */
+button.call-btn { color: var(--nr-mint); }
+.call-opt { color: var(--nr-fg); font-size: 11.5pt; }
+.call-sub { color: alpha(var(--nr-accent), 0.60); font-size: 9pt; }

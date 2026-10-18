@@ -1,0 +1,2 @@
+#!/bin/sh
+exec python3 "$(dirname "$(readlink -f "$0")")"/nrcamera.py "$@" >>"${XDG_RUNTIME_DIR:-/tmp}/nrcamera.log" 2>&1

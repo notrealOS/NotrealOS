@@ -1,0 +1,247 @@
+/* vaporMail: the Stevia keyboard's look (~/.config/gtk-3.0/gtk.css) as an app.
+   Navy with a violet glow at the bottom, CozetteVector, boxless controls,
+   lavender for secondary actions, cyan for the primary one, a thin pink line,
+   and a soft lavender glow only while pressed. */
+window, dialog, popover, label, button, entry, text, row, calendar, spinbutton, toast {
+  font-family: var(--nr-font);
+}
+
+window.background {
+  background-color: var(--nr-bg);
+  background-image: linear-gradient(180deg, alpha(var(--nr-bg), 0.0) 55%, alpha(var(--nr-glow), 0.16) 100%);
+}
+
+/* --- chrome -------------------------------------------------------------- */
+headerbar { box-shadow: none; }
+.vapor-bar { border-bottom: 1px solid alpha(var(--nr-pink), 0.35); }
+
+.app-title {
+  font-weight: bold;
+  letter-spacing: 6px;
+  background: var(--nr-gradient);
+  color: var(--nr-bg);
+  padding: 2px 12px;
+  border-radius: 6px;
+  font-size: 11pt;
+}
+.sheet-title { letter-spacing: 4px; color: alpha(var(--nr-accent), 0.85); }
+
+/* boxless buttons like the keys: lavender, glow only while pressed */
+button.flat, headerbar button, viewswitcherbar button {
+  background: none;
+  box-shadow: none;
+  color: alpha(var(--nr-accent), 0.80);
+}
+button.flat:active, headerbar button:active, button.flat:checked,
+viewswitcherbar button:active {
+  background: alpha(var(--nr-accent), 0.16);
+  border-radius: 6px;
+}
+
+viewswitcherbar {
+  background: none;
+  border-top: 1px solid alpha(var(--nr-pink), 0.35);
+}
+viewswitcherbar button:checked { color: var(--nr-primary); background: none; }
+viewswitcherbar button:checked label { color: var(--nr-primary); }
+
+/* primary action = the Enter key: pale cyan, no fill */
+button.primary, button.send {
+  background: none;
+  color: var(--nr-primary);
+  border: none;
+  box-shadow: none;
+  letter-spacing: 3px;
+}
+button.primary { border-bottom: 1px solid alpha(var(--nr-primary), 0.45); border-radius: 0; padding: 10px; }
+button.primary:active, button.send:active { background: alpha(var(--nr-primary), 0.14); border-radius: 6px; }
+
+.fab {
+  background: alpha(var(--nr-bg), 0.92);
+  border: 1px solid alpha(var(--nr-primary), 0.45);
+  border-radius: 22px;
+  padding: 10px 18px;
+  box-shadow: 0 0 18px alpha(var(--nr-accent), 0.28);
+}
+.fab-label { color: var(--nr-primary); letter-spacing: 2px; }
+.fab:active { background: alpha(var(--nr-primary), 0.16); }
+
+/* --- list ---------------------------------------------------------------- */
+.mail-list { background: none; }
+.mail-list > row { padding: 0; background: none; border-bottom: 1px solid alpha(var(--nr-pink), 0.12); }
+.mail-list > row:hover, .mail-list > row:focus { background: none; outline: none; }
+.mail-list > row:active .mail-row { background: alpha(var(--nr-accent), 0.10); }
+
+.mail-row {
+  background-color: var(--nr-bg);
+  padding: 12px 16px;
+}
+.avatar {
+  min-width: 38px;
+  min-height: 38px;
+  border-radius: 19px;
+  color: var(--nr-bg);
+  font-weight: bold;
+  font-size: 13pt;
+}
+.av0 { background: var(--nr-pink); }
+.av1 { background: var(--nr-accent); }
+.av2 { background: var(--nr-primary); }
+.av3 { background: var(--nr-mint); }
+.av4 { background: var(--nr-yellow); }
+.av5 { background: var(--nr-violet); }
+
+.from { color: alpha(var(--nr-fg), 0.80); font-size: 11.5pt; }
+.when { color: alpha(var(--nr-accent), 0.60); font-size: 9.5pt; }
+.when.due { color: var(--nr-primary); }
+.subject { color: alpha(var(--nr-fg), 0.75); font-size: 10.5pt; }
+.snippet { color: alpha(var(--nr-fg), 0.40); font-size: 9.5pt; }
+.unread .from, .unread .subject { color: var(--nr-fg); font-weight: bold; }
+.unread .when { color: var(--nr-primary); }
+.unread .avatar { box-shadow: 0 0 10px alpha(var(--nr-primary), 0.55); }
+
+/* what shows under a sliding row */
+.swipe-under { padding: 0 22px; letter-spacing: 3px; font-size: 11pt; }
+.swipe-under.later {
+  background: linear-gradient(90deg, alpha(var(--nr-primary), 0.30), alpha(var(--nr-primary), 0.05));
+  color: var(--nr-primary);
+}
+.swipe-under.trash {
+  background: linear-gradient(270deg, alpha(var(--nr-pink), 0.32), alpha(var(--nr-pink), 0.05));
+  color: var(--nr-pink);
+}
+.swipe-under.later.armed {
+  background: linear-gradient(90deg, alpha(var(--nr-primary), 0.55), alpha(var(--nr-primary), 0.15));
+  color: var(--nr-fg);
+}
+.swipe-under.trash.armed {
+  background: linear-gradient(270deg, alpha(var(--nr-pink), 0.60), alpha(var(--nr-pink), 0.15));
+  color: var(--nr-fg);
+}
+
+.empty { color: alpha(var(--nr-accent), 0.45); letter-spacing: 3px; }
+
+/* --- snooze sheet -------------------------------------------------------- */
+.snooze-list { padding: 4px 8px 18px 8px; }
+.snooze-opt { padding: 14px 12px; }
+.opt-text { color: var(--nr-fg); font-size: 12pt; }
+.opt-time { color: var(--nr-primary); font-size: 11pt; }
+calendar { background: none; border: none; color: var(--nr-fg); }
+calendar > grid > label.today { color: var(--nr-primary); }
+calendar > grid > label:selected { background: alpha(var(--nr-accent), 0.25); color: var(--nr-fg); border-radius: 6px; }
+calendar.error { box-shadow: inset 0 -1px alpha(var(--nr-pink), 0.8); }
+spinbutton { background: none; border: none; box-shadow: none; font-size: 18pt; color: var(--nr-fg); }
+spinbutton button { background: none; color: alpha(var(--nr-accent), 0.70); }
+
+/* --- reading ------------------------------------------------------------- */
+.read-head { padding: 14px 16px 10px 16px; border-bottom: 1px solid alpha(var(--nr-pink), 0.35); }
+.read-subject { font-size: 14pt; color: var(--nr-fg); font-weight: bold; }
+.read-from { color: var(--nr-primary); font-size: 10.5pt; }
+.read-to, .read-date { color: alpha(var(--nr-accent), 0.60); font-size: 9.5pt; }
+.attachment {
+  background: none;
+  border: 1px solid alpha(var(--nr-accent), 0.30);
+  border-radius: 6px;
+  color: var(--nr-fg);
+  padding: 4px 8px;
+  font-size: 9.5pt;
+}
+.attachment:active { background: alpha(var(--nr-accent), 0.16); }
+
+/* --- writing: fields look like the keyboard's space bar line --------------- */
+.compose .field { padding: 4px 16px; border-bottom: 1px solid alpha(var(--nr-pink), 0.25); }
+.field-name { color: alpha(var(--nr-accent), 0.70); min-width: 28px; letter-spacing: 2px; }
+.compose entry, .setup-entry {
+  background: none;
+  box-shadow: none;
+  border: none;
+  outline: none;
+  color: var(--nr-fg);
+  caret-color: var(--nr-primary);
+}
+.compose entry.error { color: var(--nr-pink); }
+textview.body, textview.body text {
+  background: none;
+  color: var(--nr-fg);
+  caret-color: var(--nr-primary);
+  font-size: 11.5pt;
+}
+selection { background: alpha(var(--nr-accent), 0.30); }
+
+/* --- sign in ------------------------------------------------------------- */
+.logo {
+  font-size: 22pt;
+  letter-spacing: 8px;
+  color: var(--nr-fg);
+  text-shadow: 0 0 12px alpha(var(--nr-pink), 0.8), 0 0 24px alpha(var(--nr-primary), 0.5);
+}
+.setup-hint { color: alpha(var(--nr-accent), 0.70); }
+.setup-entry { border-bottom: 1px solid alpha(var(--nr-pink), 0.35); border-radius: 0; padding: 8px 4px; }
+.setup-error { color: var(--nr-pink); }
+
+toast {
+  background: alpha(var(--nr-surface), 0.96);
+  color: var(--nr-fg);
+  border: 1px solid alpha(var(--nr-accent), 0.25);
+}
+toast button { color: var(--nr-primary); background: none; letter-spacing: 2px; }
+
+/* --- address suggestions (Google contacts) ---------------------------------- */
+.suggest { background: alpha(var(--nr-surface), 0.96); border-bottom: 1px solid alpha(var(--nr-primary), 0.30); }
+.suggest > row { padding: 0; background: none; }
+.suggest > row:active { background: alpha(var(--nr-accent), 0.16); }
+.suggest-row { padding: 10px 16px; }
+.suggest-name { color: var(--nr-fg); }
+.suggest-addr { color: alpha(var(--nr-accent), 0.60); font-size: 9.5pt; }
+
+/* compose follows the swipe-to-close: a cyan edge once letting go will close */
+.swipe-armed { box-shadow: inset 4px 0 0 var(--nr-primary), inset 40px 0 40px -30px alpha(var(--nr-primary), 0.35); }
+
+/* --- multi-select (tap the circle) ------------------------------------------- */
+.avatar.picked {
+  background: var(--nr-primary);
+  color: var(--nr-bg);
+  box-shadow: 0 0 12px alpha(var(--nr-primary), 0.65);
+}
+.mail-row.picked { background-color: alpha(var(--nr-primary), 0.12); }
+.select-bar { background: alpha(var(--nr-primary), 0.08); }
+.select-bar button { color: var(--nr-primary); }
+.sel-count { color: var(--nr-primary); letter-spacing: 3px; }
+
+/* --- bigger touch targets, same text size (10-10) ------------------------------ */
+headerbar { min-height: 58px; }
+headerbar button, .select-bar button {
+  min-width: 48px;
+  min-height: 48px;
+  padding: 0 6px;
+}
+headerbar button image { -gtk-icon-size: 20px; }
+viewswitcherbar { min-height: 64px; }
+viewswitcherbar button { min-height: 58px; padding: 6px 28px; }
+viewswitcherbar button image { -gtk-icon-size: 22px; }
+.fab { padding: 15px 24px; border-radius: 28px; }
+.mail-row { padding: 15px 16px; }
+.avatar { min-width: 44px; min-height: 44px; border-radius: 22px; }
+.snooze-opt { padding: 18px 14px; }
+.compose .field { padding: 9px 16px; }
+.suggest-row { padding: 14px 16px; }
+button.primary { padding: 14px; }
+.attachment { padding: 8px 12px; }
+toast { min-height: 52px; }
+toast button { min-height: 44px; padding: 0 14px; }
+.setup-entry { padding: 12px 4px; }
+spinbutton button { min-width: 48px; min-height: 44px; }
+
+/* --- other mailboxes: own tint + a stripe on the left edge (10-11) ------------ */
+.mail-row.tint-exchange {               /* GoDaddy / Microsoft 365 — warm amber */
+  background-color: alpha(var(--nr-orange), 0.10);
+  box-shadow: inset 4px 0 0 var(--nr-orange);
+}
+.mail-row.tint-outlook {                /* Outlook.com — ocean blue */
+  background-color: alpha(var(--nr-blue), 0.12);
+  box-shadow: inset 4px 0 0 var(--nr-blue);
+}
+.mail-list > row:active .mail-row.tint-exchange { background: alpha(var(--nr-orange), 0.20); }
+.mail-list > row:active .mail-row.tint-outlook { background: alpha(var(--nr-blue), 0.22); }
+.from-pick button { background: none; color: var(--nr-fg); padding: 6px 4px; }
+viewswitcherbar button { min-width: 0; padding-left: 2px; padding-right: 2px; }

@@ -1,0 +1,10 @@
+#!/bin/sh
+# notarealChat background service (notifications + SMS), restarted if it dies.
+# Waits on the lock while an instance started from the app grid is the running one.
+LOG="${XDG_RUNTIME_DIR:-/tmp}/notarealchat.log"
+LOCK="${XDG_RUNTIME_DIR:-/tmp}/notarealchat.lock"
+export NOTAREALCHAT_LOCKED=1
+while true; do
+    flock "$LOCK" python3 "$(dirname "$(readlink -f "$0")")"/chat.py --service >>"$LOG" 2>&1
+    sleep 5
+done

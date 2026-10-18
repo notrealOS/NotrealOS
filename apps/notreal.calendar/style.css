@@ -1,0 +1,46 @@
+/* notarealCalendar: follows the active notareal theme (--nr-*) */
+.agenda { padding: 0 12px; }
+.day-head { font-family: var(--nr-font-code); font-weight: 800; letter-spacing: 3px; font-size: 9pt;
+  color: var(--nr-accent); padding: 14px 4px 4px 4px; }
+.day-head.today { color: var(--nr-primary); }
+.empty { color: alpha(var(--nr-fg), 0.45); padding: 2px 4px 6px 4px; font-size: 9pt; }
+.status { color: alpha(var(--nr-fg), 0.7); padding: 6px; }
+button.event { padding: 8px 10px; margin: 2px 0; border-radius: 12px; background: alpha(var(--nr-accent), 0.08); }
+.ev-title { font-weight: 700; color: var(--nr-fg-bright); }
+.ev-sub { font-size: 9pt; color: alpha(var(--nr-fg), 0.65); }
+
+.month-title { font-family: var(--nr-font-code); font-weight: 800; letter-spacing: 3px; color: var(--nr-fg-bright); }
+.wd { font-family: var(--nr-font-code); font-size: 7pt; font-weight: 800; color: alpha(var(--nr-accent), 0.8); padding: 6px 0; }
+button.day { padding: 4px 0; min-height: 50px; border-radius: 10px; background: none; }
+button.day.other .day-num { color: alpha(var(--nr-fg), 0.3); }
+button.day.today .day-num { color: var(--nr-primary); font-weight: 800; }
+button.day.selected { background: alpha(var(--nr-primary), 0.18); }
+.day-num { color: var(--nr-fg-bright); }
+
+button.fab { border-radius: 999px; padding: 12px 22px; font-weight: 800; letter-spacing: 2px;
+  background: var(--nr-primary); color: var(--nr-bg); box-shadow: 0 4px 14px alpha(black, 0.35); }
+
+.svc-head { font-family: var(--nr-font-code); font-size: 8pt; font-weight: 800; letter-spacing: 2px;
+  color: var(--nr-accent); padding: 12px 0 4px 0; }
+.cal-row { padding: 6px 0; }
+.cal-name { color: var(--nr-fg-bright); }
+
+.big-title { font-size: 20pt; font-weight: 800; color: var(--nr-fg-bright); }
+.ev-date { font-family: var(--nr-font-code); letter-spacing: 1px; color: var(--nr-primary); }
+.ev-time { font-size: 13pt; color: var(--nr-fg-bright); }
+.ev-cal { color: alpha(var(--nr-fg), 0.75); }
+.d-kind { font-family: var(--nr-font-code); font-size: 7pt; letter-spacing: 2px; color: var(--nr-accent); }
+.d-value { font-size: 12pt; color: var(--nr-fg-bright); }
+.d-notes { color: var(--nr-fg); }
+
+/* the big-step new event flow */
+.question { font-size: 22pt; font-weight: 800; color: var(--nr-fg-bright); }
+entry.big-entry { font-size: 18pt; min-height: 60px; padding: 0 14px; border-radius: 14px; }
+entry.big-entry.error { outline: 2px solid var(--nr-hot-pink); }
+.big-time { font-family: var(--nr-font-code); font-size: 30pt; font-weight: 800; color: var(--nr-fg-bright); }
+button.big-chip { min-width: 52px; min-height: 44px; }
+calendar.pick-date { border-radius: 14px; }
+textview.notes { border-radius: 12px; padding: 8px; }
+button.step-btn { font-size: 14pt; font-weight: 800; letter-spacing: 2px; min-height: 60px; min-width: 130px;
+  border-radius: 999px; }
+button.step-btn.suggested { background: var(--nr-primary); color: var(--nr-bg); }

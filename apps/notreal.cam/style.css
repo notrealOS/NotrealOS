@@ -1,0 +1,60 @@
+/* notarealCamera: follows the active notareal theme (colors from --nr-*). */
+.cam-root { background: var(--nr-bg-deep); }
+.cam-view { background: black; }
+
+button.cam-chip, togglebutton.cam-chip {
+  font-family: var(--nr-font-code); font-size: 9pt; font-weight: 800; letter-spacing: 1px;
+  padding: 4px 10px; min-height: 30px;
+  background: alpha(var(--nr-accent), 0.14); color: var(--nr-fg-bright);
+}
+button.cam-chip.on, togglebutton.cam-chip:checked { background: var(--nr-primary); color: var(--nr-bg); }
+button.cam-chip.small { font-size: 8pt; min-height: 24px; padding: 2px 8px; background: alpha(black, 0.45); color: white; }
+
+.cam-ev scale trough { min-width: 6px; background: alpha(white, 0.25); }
+.cam-ev scale highlight { background: var(--nr-yellow); }
+.cam-ev scale slider { min-width: 22px; min-height: 22px; background: var(--nr-yellow); }
+
+picture.cam-preview.mirror { transform: scale(-1, 1); }
+
+.cam-focus {
+  border: 2px solid alpha(var(--nr-yellow), 0.95); border-radius: 6px; background: none;
+}
+.cam-focus.locked { border-color: var(--nr-mint); }
+
+.cam-countdown {
+  font-family: var(--nr-font-code); font-size: 72pt; font-weight: 800; color: white;
+  text-shadow: 0 0 18px alpha(black, 0.6);
+}
+.cam-status {
+  font-family: var(--nr-font-code); font-size: 10pt; letter-spacing: 2px; color: white;
+  background: alpha(black, 0.55); padding: 6px 14px; border-radius: 999px;
+}
+
+togglebutton.cam-lens {
+  font-family: var(--nr-font-code); font-weight: 800; min-width: 46px; min-height: 46px;
+  border-radius: 999px; padding: 0; background: alpha(var(--nr-fg), 0.10); color: var(--nr-fg);
+}
+togglebutton.cam-lens:checked { background: var(--nr-yellow); color: var(--nr-bg-deep); }
+
+/* the shutter: a ring with a filled centre, bottom-left */
+button.cam-shutter {
+  border-radius: 999px; padding: 0; min-width: 88px; min-height: 88px;
+  background: var(--nr-fg-bright);
+  box-shadow: inset 0 0 0 5px var(--nr-bg-deep), 0 0 0 4px var(--nr-fg-bright);
+}
+button.cam-shutter:active { background: var(--nr-primary); }
+button.cam-thumb { border-radius: 12px; padding: 0; min-width: 60px; min-height: 60px;
+  background: alpha(var(--nr-fg), 0.12); }
+.cam-mode { font-family: var(--nr-font-code); font-size: 8pt; letter-spacing: 3px; color: alpha(var(--nr-fg), 0.6); }
+
+/* white blink when a photo is taken */
+window.snap .cam-view { opacity: 0.25; }
+
+/* video mode: red centre; recording: a red rounded square */
+button.cam-shutter.video { background: #e0313a; }
+button.cam-shutter.rec {
+  background: #e0313a;
+  box-shadow: inset 0 0 0 26px var(--nr-bg-deep), 0 0 0 4px #e0313a;
+}
+button.cam-chip.mode { min-height: 26px; }
+.cam-status.rec { background: alpha(#e0313a, 0.85); }

@@ -1,0 +1,11 @@
+[Unit]
+Description=Spin animated cover converter
+After=network-online.target
+
+[Service]
+ExecStart=/usr/bin/nice -n 10 /usr/bin/python3 %h/spin/server/spin_anim.py
+Restart=on-failure
+RestartSec=10
+
+[Install]
+WantedBy=default.target

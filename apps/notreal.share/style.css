@@ -1,0 +1,14 @@
+/* notarealShare: follows the active notareal theme */
+button.share-target { padding: 10px 12px; border-radius: 12px; background: alpha(var(--nr-accent), 0.08); }
+button.share-target.mail { background: alpha(var(--nr-primary), 0.18); }
+button.share-target:active { background: alpha(var(--nr-primary), 0.35); }
+.share-list { background: none; }
+.share-list row { padding: 3px 0; background: none; }
+.share-name { font-family: var(--nr-font-code); font-weight: 700; color: var(--nr-fg-bright); }
+.share-net { font-family: var(--nr-font-code); font-size: 8pt; font-weight: 800; padding: 1px 6px;
+  border-radius: 4px; background: alpha(var(--nr-mint), 0.2); color: var(--nr-mint); }
+.share-avatar { min-width: 38px; min-height: 38px; border-radius: 999px; font-weight: 800;
+  background: alpha(var(--nr-accent), 0.25); color: var(--nr-fg-bright); }
+.share-thumb, .share-file { border-radius: 10px; background: alpha(var(--nr-fg), 0.08); }
+.share-fname { font-size: 7pt; color: alpha(var(--nr-fg), 0.7); }
+.share-more { font-family: var(--nr-font-code); font-size: 14pt; color: var(--nr-accent); }

@@ -1,0 +1,28 @@
+/* notarealCalls: follows the active notareal theme (--nr-*) */
+.dial-number { font-family: var(--nr-font-code); font-size: 30pt; font-weight: 800; color: var(--nr-fg-bright);
+  min-height: 56px; margin: 0 20px; }
+.dial-who { color: var(--nr-primary); min-height: 22px; }
+button.key { border-radius: 999px; min-width: 76px; min-height: 76px; padding: 0; background: alpha(var(--nr-fg), 0.07); }
+button.key:not(.big) { min-width: 62px; min-height: 58px; }
+.key-digit { font-family: var(--nr-font-code); font-size: 22pt; font-weight: 700; color: var(--nr-fg-bright); }
+.key-letters { font-size: 7pt; letter-spacing: 2px; color: alpha(var(--nr-fg), 0.5); min-height: 12px; }
+button.call-btn { border-radius: 999px; min-width: 84px; min-height: 84px; background: #2ecc71; color: white; }
+button.hang-btn { border-radius: 999px; min-width: 84px; min-height: 84px; background: #e74c3c; color: white; }
+button.back-key { min-width: 54px; min-height: 54px; }
+
+.recents { padding: 4px 10px; }
+button.recent { padding: 10px 12px; margin: 2px 0; border-radius: 12px; background: alpha(var(--nr-accent), 0.06); }
+button.recent.missed .r-name, button.recent.missed .dir { color: var(--nr-hot-pink); }
+.dir { color: var(--nr-accent); }
+.r-name { font-weight: 700; color: var(--nr-fg-bright); }
+.r-sub { font-size: 9pt; color: alpha(var(--nr-fg), 0.6); }
+.empty { color: alpha(var(--nr-fg), 0.5); padding: 30px; }
+
+.incall { background: var(--nr-bg-deep); }
+.ic-name { font-size: 26pt; font-weight: 800; color: var(--nr-fg-bright); }
+.ic-num { font-family: var(--nr-font-code); color: alpha(var(--nr-fg), 0.7); }
+.ic-state { font-family: var(--nr-font-code); font-size: 13pt; letter-spacing: 3px; color: var(--nr-primary); margin-top: 6px; }
+.ic-dtmf { font-family: var(--nr-font-code); font-size: 16pt; color: var(--nr-fg); }
+togglebutton.ic-toggle { border-radius: 18px; min-width: 84px; min-height: 76px; background: alpha(var(--nr-fg), 0.08); }
+togglebutton.ic-toggle:checked { background: var(--nr-primary); color: var(--nr-bg); }
+.ic-tlabel { font-family: var(--nr-font-code); font-size: 7pt; font-weight: 800; letter-spacing: 1px; }

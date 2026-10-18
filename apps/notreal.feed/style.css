@@ -1,0 +1,220 @@
+/* notarealReddit: vaporMail's look (Stevia keyboard palette, CozetteVector chrome),
+   with a plain sans for post and comment text so long threads stay readable. */
+window, dialog, popover, label, button, entry, text, row, calendar, spinbutton, toast {
+  font-family: var(--nr-font);
+}
+
+window.background {
+  background-color: var(--nr-bg);
+  background-image: linear-gradient(180deg, alpha(var(--nr-bg), 0.0) 55%, alpha(var(--nr-glow), 0.16) 100%);
+}
+
+/* --- chrome -------------------------------------------------------------- */
+headerbar { box-shadow: none; }
+.vapor-bar { border-bottom: 1px solid alpha(var(--nr-pink), 0.35); }
+
+.app-title {
+  font-weight: bold;
+  letter-spacing: 6px;
+  background: var(--nr-gradient);
+  color: var(--nr-bg);
+  padding: 2px 12px;
+  border-radius: 6px;
+  font-size: 11pt;
+}
+.sheet-title { letter-spacing: 4px; color: alpha(var(--nr-accent), 0.85); }
+
+/* boxless buttons like the keys: lavender, glow only while pressed */
+button.flat, headerbar button, viewswitcherbar button {
+  background: none;
+  box-shadow: none;
+  color: alpha(var(--nr-accent), 0.80);
+}
+button.flat:active, headerbar button:active, button.flat:checked,
+viewswitcherbar button:active {
+  background: alpha(var(--nr-accent), 0.16);
+  border-radius: 6px;
+}
+
+viewswitcherbar {
+  background: none;
+  border-top: 1px solid alpha(var(--nr-pink), 0.35);
+}
+viewswitcherbar button:checked { color: var(--nr-primary); background: none; }
+viewswitcherbar button:checked label { color: var(--nr-primary); }
+
+/* primary action = the Enter key: pale cyan, no fill */
+button.primary, button.send {
+  background: none;
+  color: var(--nr-primary);
+  border: none;
+  box-shadow: none;
+  letter-spacing: 3px;
+}
+button.primary { border-bottom: 1px solid alpha(var(--nr-primary), 0.45); border-radius: 0; padding: 10px; }
+button.primary:active, button.send:active { background: alpha(var(--nr-primary), 0.14); border-radius: 6px; }
+
+.fab {
+  background: alpha(var(--nr-bg), 0.92);
+  border: 1px solid alpha(var(--nr-primary), 0.45);
+  border-radius: 22px;
+  padding: 10px 18px;
+  box-shadow: 0 0 18px alpha(var(--nr-accent), 0.28);
+}
+.fab-label { color: var(--nr-primary); letter-spacing: 2px; }
+.fab:active { background: alpha(var(--nr-primary), 0.16); }
+
+/* --- feed ------------------------------------------------------------------ */
+.feed { background: none; }
+.feed > row { padding: 0; background: none; border-bottom: 1px solid alpha(var(--nr-pink), 0.12); }
+.feed > row:hover, .feed > row:focus, .feed > row:selected { background: none; outline: none; }
+.feed > row:active .post-card { background: alpha(var(--nr-accent), 0.08); }
+.post-card { padding: 14px 16px; }
+
+.chips { padding: 6px 10px 8px 10px; }
+.chips-bar, scrolledwindow > viewport > .chips { background: none; }
+.chip {
+  background: none;
+  border: 1px solid alpha(var(--nr-accent), 0.28);
+  border-radius: 16px;
+  color: alpha(var(--nr-accent), 0.85);
+  padding: 4px 14px;
+  min-height: 34px;
+  box-shadow: none;
+}
+.chip:checked {
+  border-color: alpha(var(--nr-primary), 0.75);
+  color: var(--nr-primary);
+  background: alpha(var(--nr-primary), 0.10);
+  box-shadow: 0 0 10px alpha(var(--nr-primary), 0.25);
+}
+
+.meta { color: alpha(var(--nr-accent), 0.70); font-size: 9.5pt; }
+.title { color: var(--nr-fg); font-size: 12pt; font-weight: bold; }
+.post-title { color: var(--nr-fg); font-size: 14pt; font-weight: bold; }
+.flair {
+  color: var(--nr-bg);
+  background: alpha(var(--nr-accent), 0.75);
+  border-radius: 5px;
+  padding: 1px 8px;
+  font-size: 8.5pt;
+}
+.foot { color: alpha(var(--nr-accent), 0.65); font-size: 10pt; letter-spacing: 1px; }
+.pic { border-radius: 10px; background: alpha(var(--nr-accent), 0.06); }
+.thumb { border-radius: 8px; background: alpha(var(--nr-accent), 0.06); }
+.link-row {
+  border: 1px solid alpha(var(--nr-primary), 0.25);
+  border-radius: 10px;
+  padding: 6px;
+}
+.domain { color: var(--nr-primary); }
+.badge {
+  background: alpha(var(--nr-bg), 0.85);
+  color: var(--nr-primary);
+  border: 1px solid alpha(var(--nr-primary), 0.45);
+  border-radius: 12px;
+  padding: 3px 10px;
+  font-size: 9.5pt;
+}
+.empty { color: alpha(var(--nr-accent), 0.55); letter-spacing: 2px; }
+
+/* post + comment text: proportional font for reading */
+.md, .md label {
+  font-family: var(--nr-font-text);
+}
+.preview { color: alpha(var(--nr-fg), 0.55); font-size: 10.5pt; }
+.body { color: var(--nr-fg); font-size: 11.5pt; }
+label link, .md link { color: var(--nr-primary); }
+
+/* --- post page ------------------------------------------------------------- */
+.post-page { padding: 14px 16px 40px 16px; }
+.link-btn {
+  background: none;
+  border: 1px solid alpha(var(--nr-primary), 0.40);
+  border-radius: 10px;
+  color: var(--nr-primary);
+  padding: 12px;
+  box-shadow: none;
+}
+.link-btn:active { background: alpha(var(--nr-primary), 0.14); }
+.video { border-radius: 10px; background: black; }
+.comments { margin-top: 10px; border-top: 1px solid alpha(var(--nr-pink), 0.35); }
+
+.cmt { padding: 8px 0 0 0; }
+.cmt.top { border-bottom: 1px solid alpha(var(--nr-pink), 0.10); padding-bottom: 8px; }
+.cmt-head { color: alpha(var(--nr-accent), 0.70); font-size: 9.5pt; padding: 4px 0; min-height: 28px; }
+.cmt-body { color: alpha(var(--nr-fg), 0.92); font-size: 11pt; }
+.cmt.folded .cmt-head { color: alpha(var(--nr-accent), 0.45); }
+.replies { margin-left: 4px; padding-left: 10px; margin-top: 4px; }
+.d0 > .replies { border-left: 2px solid alpha(var(--nr-pink), 0.45); }
+.d1 > .replies { border-left: 2px solid alpha(var(--nr-accent), 0.45); }
+.d2 > .replies { border-left: 2px solid alpha(var(--nr-primary), 0.45); }
+.d3 > .replies { border-left: 2px solid alpha(var(--nr-mint), 0.45); }
+.d4 > .replies { border-left: 2px solid alpha(var(--nr-yellow), 0.40); }
+.d5 > .replies { border-left: 2px solid alpha(var(--nr-violet), 0.45); }
+.more-btn {
+  background: none;
+  box-shadow: none;
+  color: var(--nr-primary);
+  padding: 8px 4px;
+  min-height: 40px;
+}
+
+/* --- viewer ---------------------------------------------------------------- */
+.viewer, .viewer toolbarview { background: black; }
+.viewer-bar { background: rgba(0, 0, 0, 0.45); }
+
+/* --- sort popover + subs sheet --------------------------------------------- */
+.sort-pop button { min-height: 44px; padding: 0 18px; }
+.subs-sheet { padding: 8px 16px 24px 16px; }
+.section { color: alpha(var(--nr-accent), 0.60); letter-spacing: 3px; margin-top: 14px; font-size: 9.5pt; }
+.sub-row { padding: 6px 0; border-bottom: 1px solid alpha(var(--nr-pink), 0.10); }
+.sub-row button { min-width: 48px; min-height: 48px; }
+.sub-name { color: var(--nr-fg); }
+.sub-desc { color: alpha(var(--nr-accent), 0.55); font-size: 9pt; }
+
+/* --- bigger touch targets (as vaporMail 10-10) ------------------------------- */
+headerbar { min-height: 58px; }
+headerbar button, headerbar menubutton > button { min-width: 48px; min-height: 48px; padding: 0 6px; }
+headerbar button image { -gtk-icon-size: 20px; }
+toast { min-height: 52px; }
+.setup-entry { padding: 12px 4px; }
+
+/* --- tappable names, about cards, join (10-11) ------------------------------ */
+.sub-link { color: var(--nr-primary); }
+.user-link { color: alpha(var(--nr-accent), 0.85); }
+.user-link.op { color: var(--nr-primary); }
+.tap { min-height: 28px; }
+.about-card { padding: 16px 16px 14px 16px; border-bottom: 1px solid alpha(var(--nr-pink), 0.35); }
+.about-icon { border-radius: 30px; background: alpha(var(--nr-accent), 0.12); }
+.sub-icon { border-radius: 18px; background: alpha(var(--nr-accent), 0.12); }
+.about-title { color: var(--nr-fg); font-size: 13pt; font-weight: bold; }
+.about-name { color: var(--nr-primary); font-size: 10pt; }
+.about-stats { color: alpha(var(--nr-accent), 0.70); font-size: 9.5pt; }
+.about-desc { color: alpha(var(--nr-fg), 0.70); font-size: 10.5pt; }
+button.join, button.joined {
+  border-radius: 18px;
+  padding: 4px 22px;
+  min-height: 38px;
+  letter-spacing: 3px;
+  box-shadow: none;
+}
+button.join { background: var(--nr-gradient); color: var(--nr-bg); font-weight: bold; }
+button.joined { background: none; border: 1px solid alpha(var(--nr-primary), 0.55); color: var(--nr-primary); }
+button.join:active { box-shadow: 0 0 14px alpha(var(--nr-accent), 0.5); }
+.cmt-on { color: alpha(var(--nr-fg), 0.60); font-size: 10pt; }
+
+/* --- video player (playbin + gtk4paintablesink, 10-11) ------------------------ */
+.video { background: black; border-radius: 10px; }
+.video-bar { background: linear-gradient(180deg, rgba(0,0,0,0), alpha(var(--nr-bg), 0.85)); padding: 4px 6px; }
+.video-bar button { min-width: 44px; min-height: 44px; color: var(--nr-fg); }
+.video-time { color: var(--nr-fg); font-size: 9.5pt; min-width: 38px; }
+.video-bar scale trough { background: alpha(var(--nr-accent), 0.25); }
+.video-bar scale highlight { background: var(--nr-gradient); }
+
+/* search page */
+.search-bar { padding: 4px 12px 6px 12px; }
+
+/* --- copy sheet --------------------------------------------------------------- */
+.copy-text { background: transparent; padding: 8px 2px; font-size: 1.05em; }
+.copy-link { font-size: 0.9em; opacity: 0.85; }

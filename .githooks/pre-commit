@@ -1,0 +1,3 @@
+#!/bin/sh
+# block any commit that still contains personal data (see tools/scan.py)
+exec python3 -I "$(git rev-parse --show-toplevel)/tools/scan.py"

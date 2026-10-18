@@ -1,0 +1,6 @@
+#!/bin/sh
+# Restart notarealChat (pids looked up here, so the caller's command line can't match)
+for p in $(ps -eo pid,args | awk '$2 ~ /(^|\/)python3$/ && $3 ~ /chat\/chat\.py$/ {print $1}'); do kill "$p"; done
+sleep 1
+export WAYLAND_DISPLAY="${WAYLAND_DISPLAY:-wayland-0}" XDG_RUNTIME_DIR="${XDG_RUNTIME_DIR:-/run/user/$(id -u)}"
+setsid python3 "$(dirname "$(readlink -f "$0")")"/chat.py "$@" >> "$XDG_RUNTIME_DIR/notarealchat.log" 2>&1 < /dev/null &

@@ -1,0 +1,5 @@
+/* notarealLink: follows the active notareal theme */
+.link-bar { padding: 4px 8px; background: var(--nr-bg-deep); border-top: 1px solid alpha(var(--nr-accent), 0.25); }
+.link-host { font-family: var(--nr-font-code); font-size: 9pt; color: alpha(var(--nr-fg), 0.75); }
+progressbar.link-progress trough { min-height: 2px; background: none; }
+progressbar.link-progress progress { min-height: 2px; background: var(--nr-primary); }

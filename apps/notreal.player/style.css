@@ -1,0 +1,137 @@
+/* Spin: vapor palette shared with notarealShell */
+:root {
+  --headerbar-bg-color: var(--nr-bg-deep);
+  --headerbar-backdrop-color: var(--nr-bg-deep);
+  --headerbar-shade-color: rgba(0, 0, 0, 0.35);
+  --dialog-bg-color: #1f2647;
+  --sheet-bg-color: var(--nr-bg-deep);
+}
+window, dialog, popover, label, button, entry, row {
+  font-family: var(--nr-font-code);
+}
+
+.app-title {
+  font-weight: 800;
+  letter-spacing: 6px;
+  background: var(--nr-gradient);
+  color: var(--nr-bg);
+  padding: 2px 12px;
+  border-radius: 6px;
+  font-size: 10pt;
+}
+
+.vapor-bar { border-bottom: 2px solid alpha(var(--nr-accent), 0.35); }
+
+viewswitcherbar, .mini {
+  background: var(--nr-bg-deep);
+}
+viewswitcherbar { border-top: 2px solid alpha(var(--nr-accent), 0.25); }
+
+/* covers */
+.cover { border-radius: 8px; background: var(--nr-surface); }
+.cover-small { border-radius: 6px; background: var(--nr-surface); }
+.cover-round { border-radius: 999px; background: var(--nr-surface); }
+.cover-big {
+  border-radius: 14px;
+  background: var(--nr-surface);
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.45), 0 0 0 2px alpha(var(--nr-accent), 0.35);
+}
+
+.album-grid { background: none; padding: 6px; }
+.album-grid > child { padding: 6px; border-radius: 10px; }
+.album-grid > child:hover { background: alpha(var(--nr-accent), 0.08); }
+.card-title { font-weight: bold; font-size: 9pt; }
+.card-sub { font-size: 8pt; color: alpha(var(--nr-fg-bright), 0.6); }
+
+.boxed-list-flat { background: none; }
+.boxed-list-flat > row { border-radius: 8px; }
+.row-title { font-weight: bold; font-size: 9.5pt; }
+.row-title.playing { color: var(--nr-mint); }
+.row-sub { font-size: 8pt; color: alpha(var(--nr-fg-bright), 0.6); }
+.num { font-size: 8pt; min-width: 2em; }
+.dim { color: alpha(var(--nr-fg-bright), 0.5); }
+.local-dot { color: var(--nr-mint); -gtk-icon-size: 12px; }
+.section { font-weight: 800; letter-spacing: 3px; font-size: 8pt; color: var(--nr-pink); margin: 10px 12px 2px 12px; }
+
+.page-title { font-weight: 800; font-size: 14pt; margin: 0 16px; }
+.page-sub { color: var(--nr-mint); font-size: 9pt; }
+.pin-status { color: var(--nr-cyan); font-size: 8pt; }
+togglebutton.pin:checked { background: var(--nr-mint); color: var(--nr-bg); }
+
+/* now playing */
+.np {
+  background: radial-gradient(circle at 50% 28%, alpha(var(--nr-accent), 0.28), alpha(var(--nr-bg), 0) 62%),
+              linear-gradient(180deg, var(--nr-bg), var(--nr-bg-deep));
+}
+.np-title { font-weight: 800; font-size: 15pt; }
+.np-artist { color: var(--nr-mint); font-size: 10pt; }
+.fmt { color: var(--nr-cyan); font-size: 7.5pt; }
+.time { font-size: 8pt; color: alpha(var(--nr-fg-bright), 0.6); }
+scale.seek trough { background: alpha(var(--nr-accent), 0.2); min-height: 4px; }
+scale.seek highlight { background: var(--nr-gradient); }
+scale.seek slider { background: #ffffff; min-width: 14px; min-height: 14px; }
+
+button.play-big {
+  min-width: 72px;
+  min-height: 72px;
+  -gtk-icon-size: 28px;
+  background: linear-gradient(135deg, var(--nr-pink), var(--nr-violet) 50%, var(--nr-cyan));
+  color: var(--nr-bg);
+  box-shadow: 0 6px 18px alpha(var(--nr-violet), 0.45);
+}
+button.big-ctl { -gtk-icon-size: 24px; min-width: 52px; min-height: 52px; }
+
+button.chip, togglebutton.chip {
+  font-size: 8pt;
+  font-weight: 800;
+  letter-spacing: 2px;
+  padding: 4px 12px;
+  border-radius: 6px;
+  background: alpha(var(--nr-accent), 0.12);
+  color: var(--nr-accent);
+}
+togglebutton.chip.on, togglebutton.chip:checked {
+  background: var(--nr-yellow);
+  color: var(--nr-bg);
+  box-shadow: 0 0 12px alpha(var(--nr-yellow), 0.5);
+}
+
+.eq-freq { font-size: 7pt; color: alpha(var(--nr-fg-bright), 0.6); }
+row.current { background: alpha(var(--nr-mint), 0.12); }
+
+.fav-dot { color: var(--nr-hot-pink); -gtk-icon-size: 12px; }
+button.heart:checked, togglebutton.heart:checked { color: var(--nr-hot-pink); background: none; }
+togglebutton.heart.circular:checked { background: alpha(var(--nr-hot-pink), 0.15); }
+.np-head { font-size: 8pt; font-weight: 800; letter-spacing: 4px; color: var(--nr-accent); }
+.np { min-height: 100px; }
+
+.mini { border-top: 2px solid alpha(var(--nr-accent), 0.35); }
+.mini-title { font-weight: 800; font-size: 11pt; }
+.mini-sub { font-size: 9pt; color: var(--nr-mint); }
+button.mini-btn { min-width: 48px; min-height: 48px; -gtk-icon-size: 22px; }
+progressbar.mini-progress trough { min-height: 3px; background: alpha(var(--nr-accent), 0.15); border-radius: 0; }
+progressbar.mini-progress progress { min-height: 3px; border-radius: 0;
+  background: var(--nr-gradient); }
+
+/* bottom tab bar: bigger targets */
+viewswitcherbar { padding: 4px 0 6px 0; }
+viewswitcherbar viewswitcher button { min-height: 62px; margin: 0 2px; border-radius: 12px; }
+viewswitcherbar viewswitcher button image { -gtk-icon-size: 24px; }
+viewswitcherbar viewswitcher button label { font-size: 9pt; font-weight: bold; }
+viewswitcherbar viewswitcher button:checked { background: alpha(var(--nr-accent), 0.16); color: var(--nr-accent); }
+button.chip.mix { color: var(--nr-mint); background: alpha(var(--nr-mint), 0.12); }
+
+/* floating shuffle-all on the Albums tab (bottom left: left-handed) */
+button.shuffle-fab { min-width: 56px; min-height: 56px; border-radius: 28px; padding: 0;
+  background: linear-gradient(135deg, var(--nr-pink), var(--nr-violet) 50%, var(--nr-cyan)); color: var(--nr-bg);
+  box-shadow: 0 4px 14px rgba(20, 10, 50, 0.55); }
+button.shuffle-fab image { color: var(--nr-bg); -gtk-icon-size: 24px; }
+button.shuffle-fab:active { opacity: 0.85; }
+/* smart playlist tile */
+.smart-cover { border-radius: 6px; font-size: 22pt; color: var(--nr-bg);
+  background: linear-gradient(135deg, var(--nr-pink), var(--nr-violet) 50%, var(--nr-cyan)); }
+
+/* now playing: 1-5 star rating (10-16) */
+.stars button { min-width: 34px; min-height: 30px; padding: 0 2px; font-size: 17pt;
+  background: none; box-shadow: none; color: alpha(var(--nr-fg-bright), 0.3); }
+.stars button.lit { color: var(--nr-yellow); }
