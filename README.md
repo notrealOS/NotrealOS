@@ -55,6 +55,23 @@ reminders wake the phone from sleep and are read aloud. Hold volume up to just s
 
 *Real screenshots from the phone, personal details blacked out.* More in [shell/](shell).
 
+## Themes
+
+One switch restyles the whole phone: every app, the wallpaper, the widget, the joystick, the
+keyboard, the Phosh top bar and lock screen, and the icons. Pick one from the ◐ button on the
+overview widget, or run `nrtheme <name>`.
+
+<p>
+<img src="docs/screenshots/theme-vapor.png" width="128" alt="vapor theme">
+<img src="docs/screenshots/theme-vaporlight.png" width="128" alt="vaporlight theme">
+<img src="docs/screenshots/theme-micro.png" width="128" alt="micro theme">
+<img src="docs/screenshots/theme-microdark.png" width="128" alt="microdark theme">
+<img src="docs/screenshots/theme-alien.png" width="128" alt="alien theme">
+<img src="docs/screenshots/theme-nasa.png" width="128" alt="nasa theme">
+</p>
+
+*vapor · vaporlight · micro · microdark · alien · nasa.* Details: [shell/theme](shell/theme).
+
 ## Layout
 
 ```
