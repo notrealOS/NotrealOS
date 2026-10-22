@@ -39,6 +39,7 @@ All apps are Python + GTK4/libadwaita, sized for a phone, with the main controls
 | [notreal.player](apps/notreal.player) | Navidrome music client with a spinning vinyl (or a cassette), animated covers, bit-perfect USB DAC output, offline songs |
 | [notreal.maps](apps/notreal.maps) | Google maps, places and routes with GPS and offline voice navigation |
 | [notreal.feed](apps/notreal.feed) | Reader for Reddit through a self-hosted Redlib on the PC (not affiliated with Reddit) |
+| [notreal.tube](apps/notreal.tube) | YouTube, TikTok, Instagram and Vimeo in one feed and search, no accounts, streamed by the PC (not affiliated with any of them) |
 
 ## The shell
 

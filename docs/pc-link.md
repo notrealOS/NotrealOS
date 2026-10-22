@@ -17,6 +17,7 @@ flowchart LR
         chat["notreal.chat"]
         player["notreal.player"]
         feed["notreal.feed"]
+        tube["notreal.tube"]
         backup["nightly backup"]
     end
 
@@ -34,6 +35,8 @@ flowchart LR
         anim["spin-anim :4535<br/>animated covers"]
         redlib["Redlib :8095"]
         api["feed api :8096"]
+        hub["video hub :8099<br/>yt-dlp + ffmpeg"]
+        searx["SearXNG"]
         storage[("restic repo<br/>on a data drive")]
     end
 
@@ -42,6 +45,7 @@ flowchart LR
     chat -->|HTTPS| ts --> synapse --> bridges
     player --> ts --> navidrome & anim
     feed --> ts --> api --> redlib
+    tube --> ts --> hub --> searx
     backup -->|sftp over ssh| ts --> storage
 ```
 
@@ -56,6 +60,7 @@ flowchart LR
 | notreal.player | Navidrome | 4533 | Music library (Subsonic API), bit-perfect streaming |
 | notreal.player | `spin_anim.py` | 4535 | Turns animated `cover.webp` album art into small looping MP4s the phone can decode cheaply |
 | notreal.feed | Redlib + `api.py` | 8095, 8096 | Redlib reads Reddit; `api.py` turns its pages into compact JSON and resizes images for the phone |
+| notreal.tube | `hub.py` + SearXNG | 8099 | Feed from channel RSS, search, streams remuxed to one MP4 by ffmpeg; on mobile data the phone runs the same hub itself |
 | nightly backup | sshd | 22 | `restic` over sftp to a big data drive, only while charging on Wi-Fi |
 
 ### Everything still works without the PC

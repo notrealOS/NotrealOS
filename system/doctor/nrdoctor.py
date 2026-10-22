@@ -349,6 +349,17 @@ def usb_enumerated():
     return any(re.fullmatch(r"\d+-\d+", d) for d in os.listdir("/sys/bus/usb/devices"))
 
 
+def usb_reset():
+    """10-20: ~/usbreset (passwordless sudo): dwc3 mode flip, then driver rebind + flip."""
+    try:
+        subprocess.run(["sudo", "-n", "/usr/local/sbin/usbreset"], timeout=60,
+                       stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+    except (OSError, subprocess.TimeoutExpired):
+        return False
+    time.sleep(2)   # let pulse add the DAC sink before the DAC checks
+    return usb_enumerated()
+
+
 def adb_ok():
     return f"{DROID}\tdevice" in sh("adb", "devices", timeout=6)
 
@@ -513,11 +524,13 @@ def run(fix=True, auto=False):
         res["failed"].append(f"SMS delivery ({stuck} stuck on the modem)")
     check("call audio routing", mixers_ok, mixers_fix)
     check("speaker sample format (s16le)", speaker_format_ok, pulse_fix)
+    # tap only (not --auto): a USB controller rebind should never happen behind the user's back
+    check("USB-C device detected (if not: replug it, reboot if it stays dead)", usb_enumerated,
+          None if auto else usb_reset, bad="manual")
     if dac_card():
         check("DAC is the default output", dac_default_ok, dac_default_fix)
         check("DAC volume (2nd control at max)", dac_volume_ok, dac_volume_fix)
     check("camera services (1 pipewire + 1 wireplumber)", camera_services_ok, camera_services_fix)
-    check("USB-C device detected (if not: replug it, reboot if it stays dead)", usb_enumerated, bad="manual")
     check("internet", lambda: reachable(INTERNET, 6), bad="manual")
     if DROID:
         check("home phone link (droid apps)", adb_ok, adb_fix, bad="minor")

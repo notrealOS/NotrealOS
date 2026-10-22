@@ -1,0 +1,9 @@
+services:
+  searxng:
+    image: searxng/searxng:latest
+    container_name: searxng
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:8890:8080"     # only the hub talks to it
+    volumes:
+      - ./searxng:/etc/searxng

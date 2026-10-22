@@ -653,8 +653,8 @@ class Joystick:
         self.win.present()
 
     def hide(self):
+        self.win.set_visible(False)  # first: the overview is closing, don't re-hide the keyboard
         self._show_joy()
-        self.win.set_visible(False)
 
     # --- ALL page ----------------------------------------------------------------------------
     def _build_all(self):
@@ -718,6 +718,7 @@ class Joystick:
         self.search.set_text("")
         self.stack.set_visible_child_name("all")
         LayerShell.set_keyboard_mode(self.win, LayerShell.KeyboardMode.ON_DEMAND)
+        self._osk_overview(False)  # the search field needs the keyboard
 
     def toggle_ram(self):
         if self.stack.get_visible_child_name() == "ram":
@@ -727,8 +728,16 @@ class Joystick:
             self.stack.set_visible_child_name("ram")
             self.ram.start()
 
+    def _osk_overview(self, open_):
+        """10-20: the swipe keyboard stays hidden in the overview; the ALL page lifts that."""
+        Gio.bus_get_sync(Gio.BusType.SESSION).call(
+            "sm.puri.OSK0", "/sm/puri/OSK0", "sm.puri.OSK0", "Overview", GLib.Variant("(b)", (open_,)),
+            None, Gio.DBusCallFlags.NO_AUTO_START, 500, None, None, None)
+
     def _show_joy(self):
         self.ram.stop()
+        if self.stack.get_visible_child_name() == "all" and self.win.get_visible():
+            self._osk_overview(True)
         LayerShell.set_keyboard_mode(self.win, LayerShell.KeyboardMode.NONE)
         self.stack.set_visible_child_name("joy")
 

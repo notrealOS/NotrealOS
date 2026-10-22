@@ -1,0 +1,64 @@
+/* notreal.tube: coloured by the active notareal theme (--nr-*), no outlines */
+window, label, button, entry, text, toast { font-family: var(--nr-font); }
+window.background { background-color: var(--nr-bg); }
+
+headerbar.tube-bar { box-shadow: none; background: var(--nr-bg); }
+.tube-title { font-family: var(--nr-font-code); font-weight: 800; letter-spacing: 2px; font-size: 10.5pt;
+  color: var(--nr-fg-bright); }
+button.flat { background: none; box-shadow: none; color: var(--nr-fg-bright); }
+button.flat:active { background: alpha(var(--nr-fg-bright), 0.12); border-radius: 999px; }
+
+.list { padding: 4px 0 24px 0; }
+.card { padding: 0 0 14px 0; }
+.card:active { background: alpha(var(--nr-fg-bright), 0.05); }
+.card.seen .card-title, .card.seen .card-meta { opacity: 0.5; }
+.card-title { font-family: var(--nr-font-text); font-weight: 600; font-size: 11.5pt; color: var(--nr-fg-bright);
+  margin: 0 16px; }
+.card-meta { font-family: var(--nr-font-code); font-size: 8.5pt; letter-spacing: 1px; color: alpha(var(--nr-fg), 0.7);
+  margin: 0 16px; }
+picture.thumb { background: var(--nr-surface); }
+
+.badge { font-family: var(--nr-font-code); font-weight: 800; font-size: 8pt; letter-spacing: 1px;
+  background: alpha(black, 0.72); color: white; padding: 2px 7px; border-radius: 6px; margin: 8px; }
+.src-badge { font-family: var(--nr-font-code); font-weight: 800; font-size: 8pt; letter-spacing: 1px;
+  padding: 2px 7px; border-radius: 6px; margin: 8px; color: white; }
+.src-badge.tiktok { background: alpha(#111, 0.85); color: var(--nr-cyan); }
+.src-badge.instagram { background: alpha(#c13584, 0.9); }
+.src-badge.vimeo { background: alpha(#1ab7ea, 0.9); }
+.square .badge, .square .src-badge { border-radius: 0; }
+progressbar.watched trough { min-height: 3px; background: alpha(white, 0.25); border-radius: 0; }
+progressbar.watched progress { min-height: 3px; background: var(--nr-orange); border-radius: 0; }
+
+.chips { padding: 4px 12px 8px 12px; }
+togglebutton.chip { font-family: var(--nr-font-code); font-weight: 800; font-size: 8.5pt; letter-spacing: 2px;
+  background: var(--nr-surface); color: var(--nr-fg); border-radius: 999px; padding: 6px 14px; box-shadow: none; }
+togglebutton.chip:checked { background: var(--nr-fg-bright); color: var(--nr-bg); }
+.square togglebutton.chip { border-radius: 0; }
+
+.status { font-family: var(--nr-font-code); letter-spacing: 2px; color: alpha(var(--nr-fg), 0.7); padding: 40px 24px; }
+
+.player { background: black; }
+.player-bar { background: linear-gradient(0deg, alpha(black, 0.75), alpha(black, 0)); padding: 18px 4px 2px 4px; }
+.player-bar button.flat { color: white; }
+.player-time { font-family: var(--nr-font-code); font-size: 8.5pt; color: white; margin: 0 4px; }
+.player-bar scale trough { background: alpha(white, 0.25); }
+.player-bar scale highlight { background: var(--nr-orange); }
+.player-bar scale slider { background: white; min-width: 14px; min-height: 14px; }
+.player-msg { color: white; font-family: var(--nr-font-code); letter-spacing: 1px; padding: 24px; }
+.skip-note { font-family: var(--nr-font-code); font-weight: 800; font-size: 8.5pt; letter-spacing: 1px;
+  background: alpha(black, 0.72); color: var(--nr-orange); padding: 4px 10px; border-radius: 6px; margin: 10px; }
+
+.watch-info { padding: 14px 16px 30px 16px; }
+.watch-title { font-family: var(--nr-font-text); font-weight: 700; font-size: 13pt; color: var(--nr-fg-bright); }
+button.pill, togglebutton.pill { font-family: var(--nr-font-code); font-weight: 800; font-size: 8.5pt; letter-spacing: 2px;
+  background: var(--nr-surface); color: var(--nr-fg-bright); border-radius: 999px; padding: 8px 16px; box-shadow: none; }
+button.pill.on, togglebutton.pill:checked { background: var(--nr-fg-bright); color: var(--nr-bg); }
+headerbar button.pill { padding: 4px 12px; }
+.square button.pill, .square togglebutton.pill { border-radius: 0; }
+.channel-link { font-family: var(--nr-font-code); font-weight: 800; letter-spacing: 2px; font-size: 9.5pt;
+  color: var(--nr-orange); padding: 4px 0; }
+.desc { font-family: var(--nr-font-text); font-size: 10pt; color: alpha(var(--nr-fg), 0.85); }
+.tube-title.long { letter-spacing: 1px; font-size: 10pt; }
+.watch-meta { font-family: var(--nr-font-code); font-size: 8.5pt; letter-spacing: 1px; color: alpha(var(--nr-fg), 0.7); }
+headerbar togglebutton.bar-chip { padding: 2px 10px; font-size: 7.5pt; letter-spacing: 1px; }
+.buf-pct { font-family: var(--nr-font-code); font-weight: 800; font-size: 9pt; letter-spacing: 2px; color: white; }

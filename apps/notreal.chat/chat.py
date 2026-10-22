@@ -622,7 +622,10 @@ class ChatList(Adw.NavigationPage):
     def _widget_for(self, key):
         sig = self._sigs.get(key)
         hit = self._rowcache.get(key)
-        if hit and hit[0] == sig:
+        # 10-19: a cached row still inside another list row is left there and a fresh one is built.
+        # Stealing it (set_child(None) on the other row mid-splice) left blank rows behind and broke
+        # the ListView's own child order (gtk_widget_insert_after criticals, then a segfault).
+        if hit and hit[0] == sig and hit[1].get_parent() is None:
             return hit[1]
         if key == "archived":
             w = self._archived_row(self._data["archived"])
@@ -634,13 +637,10 @@ class ChatList(Adw.NavigationPage):
         return w
 
     def _bind(self, _f, li):
-        w = self._widget_for(li.get_item().key)
-        old = w.get_parent()          # a cached row still sitting in another (recycled) list row
-        if old is not None:
-            for other in self._bound:
-                if other.get_child() is w and other is not li:
-                    other.set_child(None)
-        li.set_child(w)
+        cur = li.get_child()
+        if cur is not None:
+            li.set_child(None)
+        li.set_child(self._widget_for(li.get_item().key))
         self._bound.add(li)
 
     def _unbind(self, _f, li):
@@ -747,13 +747,23 @@ class ChatList(Adw.NavigationPage):
         if not c:
             return
         buzz()
+        # 10-19: parented to the page, not the row - mark read/archive rebuild the row, which left the
+        # popover on a destroyed widget and crashed the next long-press
         pop = Gtk.Popover()
-        pop.set_parent(widget)
+        pop.set_parent(self)
+        ok, b = widget.compute_bounds(self)
+        if ok:
+            r = Gdk.Rectangle()
+            r.x, r.y = int(b.get_x()), int(b.get_y())
+            r.width, r.height = int(b.get_width()), int(b.get_height())
+            pop.set_pointing_to(r)
         box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL)
         box.add_css_class("menu-box")
 
         def item(text, cb):
-            b = text_button(text, lambda: (pop.popdown(), cb()), "flat menu-item")
+            # the action runs after the popover is unparented (same idle queue, so in order)
+            b = text_button(text, lambda: (pop.popdown(), GLib.idle_add(lambda: (cb(), False)[1])),
+                            "flat menu-item")
             b.get_child().set_xalign(0)
             box.append(b)
         item("unmute" if c["muted"] else "mute notifications",

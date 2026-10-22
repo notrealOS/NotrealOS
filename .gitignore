@@ -9,3 +9,5 @@ core
 private-patterns
 github-token
 pc.json
+pc/tube/venv/
+apps/notreal.tube/data/

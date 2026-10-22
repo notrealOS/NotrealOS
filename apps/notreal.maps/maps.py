@@ -300,7 +300,7 @@ class Window(Adw.ApplicationWindow):
         def ok(session):
             # the source id names the tile cache: one per theme, or old-theme tiles would linger
             src = Shumate.RasterRenderer.new_full_from_url(
-                ("google-traffic" if traffic else "google") + "-" + notareal_theme.active(), "Google", "© Google", "https://www.google.com/maps",
+                ("google-traffic" if traffic else "google") + "-" + notareal_theme.active() + "-w", "Google", "© Google", "https://www.google.com/maps",
                 0, 22, 256, Shumate.MapProjection.MERCATOR, self.g.tile_url(session))
             layer = Shumate.MapLayer.new(src, self.viewport)
             old = self.base_layer

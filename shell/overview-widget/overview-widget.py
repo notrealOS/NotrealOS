@@ -617,6 +617,10 @@ class OverviewWidget(Gtk.Application):
             print(time.strftime("%H:%M:%S"), f"none={self.no_window_active} locked={self.locked} drawer={self.drawer_open}"
                   f" -> show={show} (visible={self.window.get_visible()}"
                   f" size={self.window.get_width()}x{self.window.get_height()})", flush=True)
+        overview = self.no_window_active and not self.locked  # not on the lock screen: PIN needs the keyboard
+        if overview != getattr(self, "_osk_overview", None):
+            self._osk_overview = overview
+            self._osk_call("Overview", GLib.Variant("(b)", (overview,)))
         if show == self.window.get_visible():
             return False
         if show:
@@ -929,6 +933,12 @@ class OverviewWidget(Gtk.Application):
                 Gio.DBusCallFlags.NO_AUTO_START, 500, None, None, None)
         except GLib.Error:
             pass
+
+    def _osk_call(self, method, args=None):
+        """async call on the swipe keyboard (10-20 Overview: no pop-up over the joystick)"""
+        Gio.bus_get_sync(Gio.BusType.SESSION).call(
+            "sm.puri.OSK0", "/sm/puri/OSK0", "sm.puri.OSK0", method, args, None,
+            Gio.DBusCallFlags.NO_AUTO_START, 500, None, None, None)
 
     def _update_visibility_once(self):
         self._update_visibility()

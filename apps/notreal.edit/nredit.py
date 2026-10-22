@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""notarealEdit: a small photo editor - crop, curves, saturation, then save a copy or share.
+"""notarealEdit: a small photo editor - crop, curves, saturation, blur, vignette, then save a copy or share.
 
 Edits preview live on a downscaled copy; SAVE renders the full image in the background and
 writes <name>_edit.jpg next to the original (the original is never overwritten).
@@ -71,8 +71,90 @@ def monotone_lut(ys):
     return np.clip(out * 255 + 0.5, 0, 255).astype(np.uint8)
 
 
+def box_blur(a, k, axis):
+    """One box-blur pass of radius k along axis (edge-padded), float32 in/out."""
+    pad = [(0, 0)] * a.ndim
+    pad[axis] = (k + 1, k)
+    c = np.cumsum(np.pad(a, pad, mode="edge"), axis=axis, dtype=np.float32)
+    n = a.shape[axis]
+    if axis == 0:
+        return (c[2 * k + 1:2 * k + 1 + n] - c[:n]) * (1.0 / (2 * k + 1))
+    return (c[:, 2 * k + 1:2 * k + 1 + n] - c[:, :n]) * (1.0 / (2 * k + 1))
+
+
+def blurred(a, amount):
+    """Gaussian-like blur whose radius is a share of the picture size (so the small preview and
+    the full-size save look the same): shrink, 3 box passes each way, scale back up. Light on RAM."""
+    h, w = a.shape[:2]
+    r = amount * 0.025 * max(w, h)          # up to 2.5 % of the long side
+    d = max(2.0, r / 3)                      # work on a copy where the radius is ~3 px
+    sw, sh = max(1, int(w / d)), max(1, int(h / d))
+    pb = GdkPixbuf.Pixbuf.new_from_bytes(GLib.Bytes.new(np.ascontiguousarray(a).tobytes()),
+                                         GdkPixbuf.Colorspace.RGB, False, 8, w, h, w * 3)
+    small = to_array(pb.scale_simple(sw, sh, GdkPixbuf.InterpType.BILINEAR)).astype(np.float32)
+    k = max(1, round(r / d / 1.7))           # 3 box passes of radius k ~ gaussian sigma r/d
+    for axis in (0, 1):
+        for _ in range(3):
+            small = box_blur(small, k, axis)
+    small = np.clip(small + 0.5, 0, 255).astype(np.uint8)
+    spb = GdkPixbuf.Pixbuf.new_from_bytes(GLib.Bytes.new(small.tobytes()), GdkPixbuf.Colorspace.RGB,
+                                          False, 8, sw, sh, sw * 3)
+    return to_array(spb.scale_simple(w, h, GdkPixbuf.InterpType.BILINEAR))
+
+
+def radial(h, w, y0, y1):
+    """Rows y0..y1 of the distance from the centre: 0 middle, 1 at the corners."""
+    ys = (np.arange(y0, y1, dtype=np.float32) + 0.5) / h * 2 - 1
+    xs = (np.arange(w, dtype=np.float32) + 0.5) / w * 2 - 1
+    return np.sqrt(ys[:, None] ** 2 + xs[None, :] ** 2) / np.sqrt(2)
+
+
+def smooth(e0, e1, x):
+    t = np.clip((x - e0) / (e1 - e0), 0, 1)
+    return t * t * (3 - 2 * t)
+
+
+_masks = {}
+
+
+def mask(h, w, y0, y1, e0, e1):
+    """smooth(e0, e1, radial) rows y0..y1, as HxWx1 float32; whole preview-size masks are cached
+    (slider drags redraw the same size over and over)."""
+    if h * w > 3_000_000:
+        return smooth(e0, e1, radial(h, w, y0, y1))[..., None]
+    key = (h, w, e0, e1)
+    if key not in _masks:
+        if len(_masks) > 6:
+            _masks.clear()
+        _masks[key] = smooth(e0, e1, radial(h, w, 0, h))[..., None]
+    return _masks[key][y0:y1]
+
+
+def blur_vignette(out, state):
+    """Blur (whole picture, or EDGES: sharp centre fading into blur) then vignette, in place."""
+    amount, edges, vig = state["blur"], state["blur_edges"], state["vig"]
+    h, w = out.shape[:2]
+    if amount > 0.01:
+        b = blurred(out, amount)
+        if not edges:
+            out[:] = b
+        else:
+            for y in range(0, h, 512):
+                m = mask(h, w, y, min(y + 512, h), 0.25, 0.75)
+                o = out[y:y + 512].astype(np.float32)
+                out[y:y + 512] = np.clip(o + (b[y:y + 512] - o) * m + 0.5, 0, 255).astype(np.uint8)
+        del b
+    if abs(vig) > 0.01:
+        target = 0.0 if vig > 0 else 255.0   # right = dark corners, left = white corners
+        for y in range(0, h, 512):
+            m = mask(h, w, y, min(y + 512, h), 0.3, 1.05) * (abs(vig) * 0.9)
+            o = out[y:y + 512].astype(np.float32)
+            out[y:y + 512] = np.clip(o + (target - o) * m + 0.5, 0, 255).astype(np.uint8)
+    return out
+
+
 def render(a, state):
-    """rotate -> crop -> curves -> saturation. a: HxWx3 uint8.
+    """rotate -> crop -> curves -> saturation -> blur -> vignette. a: HxWx3 uint8.
     The crop box is in the ROTATED picture's coordinates (what the crop frame shows)."""
     rot = state["rot"] % 4
     if rot:
@@ -92,11 +174,11 @@ def render(a, state):
             l = f @ np.array([0.299, 0.587, 0.114], np.float32)
             f = l[..., None] + (f - l[..., None]) * sat
             out[y:y + 512] = np.clip(f + 0.5, 0, 255).astype(np.uint8)
-    return out
+    return blur_vignette(out, state)
 
 
 def default_state():
-    return {"crop": (0.0, 0.0, 1.0, 1.0), "rot": 0, "sat": 1.0,
+    return {"crop": (0.0, 0.0, 1.0, 1.0), "rot": 0, "sat": 1.0, "blur": 0.0, "blur_edges": False, "vig": 0.0,
             "curves": {c: list(CURVE_X) for c in ("rgb", "r", "g", "b")}}
 
 
@@ -365,22 +447,63 @@ class Window(Adw.ApplicationWindow):
         self.sat.connect("value-changed", self._sat)
         sat.append(self.sat)
         self.tools.add_named(sat, "sat")
+        # blur: how much + where (left-handed: the mode chips on the left, above the slider)
+        blur = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=6, margin_start=14, margin_end=14)
+        modes = Gtk.Box(spacing=6)
+        group = None
+        self.blur_modes = []
+        for text, edges in (("ALL", False), ("EDGES", True)):
+            b = Gtk.ToggleButton(label=text, css_classes=["chip"], active=not edges)
+            if group:
+                b.set_group(group)
+            group = group or b
+            b.connect("toggled", lambda btn, e=edges: btn.get_active() and self._blur_mode(e))
+            modes.append(b)
+            self.blur_modes.append(b)
+        blur.append(modes)
+        self.blur_label = Gtk.Label(label="BLUR 0%", css_classes=["tool-label"], xalign=0)
+        blur.append(self.blur_label)
+        self.blur = Gtk.Scale(adjustment=Gtk.Adjustment(lower=0, upper=1, value=0, step_increment=0.02),
+                              draw_value=False, hexpand=True)
+        self.blur.connect("value-changed", self._blur)
+        blur.append(self.blur)
+        self.tools.add_named(blur, "blur")
+        # vignette: right darkens the corners, left whitens them
+        vig = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=6, margin_start=14, margin_end=14)
+        self.vig_label = Gtk.Label(label="VIGNETTE 0", css_classes=["tool-label"], xalign=0)
+        vig.append(self.vig_label)
+        self.vig = Gtk.Scale(adjustment=Gtk.Adjustment(lower=-1, upper=1, value=0, step_increment=0.02),
+                             draw_value=False, hexpand=True)
+        self.vig.add_mark(0.0, Gtk.PositionType.BOTTOM, None)
+        self.vig.connect("value-changed", self._vig)
+        vig.append(self.vig)
+        self.tools.add_named(vig, "vig")
         body.append(self.tools)
 
-        tabs = Gtk.Box(spacing=8, margin_start=12, margin_top=8, margin_bottom=14, halign=Gtk.Align.START)
+        self._tab_btns = []
+        tabs = Gtk.Box(spacing=8, margin_start=12, margin_end=12, margin_top=8, margin_bottom=14,
+                       halign=Gtk.Align.START)
         group = None
-        for text, key in (("CROP", "crop"), ("CURVES", "curves"), ("SATURATION", "sat")):
+        for text, key in (("CROP", "crop"), ("CURVES", "curves"), ("COLOR", "sat"), ("BLUR", "blur"),
+                          ("VIGNETTE", "vig")):
             b = Gtk.ToggleButton(label=text, css_classes=["tool-tab"], active=key == "curves")
             if group:
                 b.set_group(group)
             group = group or b
             b.connect("toggled", lambda btn, k=key: btn.get_active() and self.tool(k))
+            b.key = key
+            self._tab_btns.append(b)
             tabs.append(b)
-        body.append(tabs)
+        body.append(Gtk.ScrolledWindow(child=tabs, vscrollbar_policy=Gtk.PolicyType.NEVER,
+                                       hscrollbar_policy=Gtk.PolicyType.EXTERNAL, propagate_natural_height=True))
         self.toasts = Adw.ToastOverlay(child=body)
         tv.set_content(self.toasts)
         self.set_content(tv)
         self.tools.set_visible_child_name("curves")
+        if os.environ.get("NREDIT_TAB"):        # headless screenshots: "blur:0.5" / "vig:0.6"
+            tab, _, val = os.environ["NREDIT_TAB"].partition(":")
+            next(b for b in self._tab_btns if b.key == tab).set_active(True)
+            getattr(self, tab).set_value(float(val or 0))
         threading.Thread(target=self._load, daemon=True).start()
 
     # loading
@@ -425,6 +548,22 @@ class Window(Adw.ApplicationWindow):
         self.sat_label.set_label(f"SATURATION {int(self.state['sat'] * 100)}%")
         self.refresh(live=True)
 
+    def _blur(self, scale):
+        self.state["blur"] = scale.get_value()
+        self.blur_label.set_label(f"BLUR {int(self.state['blur'] * 100)}%")
+        self.refresh(live=True)
+
+    def _blur_mode(self, edges):
+        self.state["blur_edges"] = edges
+        self.refresh()
+
+    def _vig(self, scale):
+        v = scale.get_value()
+        self.state["vig"] = v
+        self.vig_label.set_label("VIGNETTE 0" if abs(v) < 0.01 else
+                                 f"VIGNETTE {int(abs(v) * 100)}% {'DARK' if v > 0 else 'WHITE'}")
+        self.refresh(live=True)
+
     def rotate(self, step):
         self.state["rot"] = (self.state["rot"] + step) % 4
         # rotate the crop box with the picture so it keeps covering the same part
@@ -435,6 +574,9 @@ class Window(Adw.ApplicationWindow):
     def reset(self):
         self.state = default_state()
         self.sat.set_value(1.0)
+        self.blur.set_value(0.0)
+        self.vig.set_value(0.0)
+        self.blur_modes[0].set_active(True)
         self.canvas.ratio = None
         self.curve.queue_draw()
         self.refresh()

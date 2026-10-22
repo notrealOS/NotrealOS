@@ -1267,7 +1267,8 @@ class HomePage(Adw.NavigationPage):
         hb = Adw.HeaderBar()
         hb.add_css_class("vapor-bar")
         t = label("NOTREAL.FEED", "app-title", xalign=0.5)
-        t.set_ellipsize(Pango.EllipsizeMode.NONE)
+        t.add_css_class("long")
+        t.set_ellipsize(Pango.EllipsizeMode.END)   # never let the title widen the window
         hb.set_title_widget(t)
         refresh = Gtk.Button(icon_name="view-refresh-symbolic", tooltip_text="Refresh")
         refresh.connect("clicked", lambda b: self.feed.reload())

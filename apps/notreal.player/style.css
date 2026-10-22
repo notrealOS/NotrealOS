@@ -135,3 +135,7 @@ button.shuffle-fab:active { opacity: 0.85; }
 .stars button { min-width: 34px; min-height: 30px; padding: 0 2px; font-size: 17pt;
   background: none; box-shadow: none; color: alpha(var(--nr-fg-bright), 0.3); }
 .stars button.lit { color: var(--nr-yellow); }
+
+/* DAP mode button (10-21): lit while the phone is in music-only mode */
+.dap-btn { font-family: var(--nr-font); font-weight: bold; letter-spacing: 1px; padding: 0 10px; }
+.dap-btn.dap-on { background: var(--nr-primary); color: var(--nr-bg); }

@@ -2,6 +2,7 @@
 """notarealPlayer: a Navidrome client for the phone, vapor themed, vinyl now-playing."""
 import math
 import os
+import subprocess
 import sys
 import threading
 import gi
@@ -1735,12 +1736,40 @@ class Window(Adw.ApplicationWindow):
     def toast(self, msg):
         self.toasts.add_toast(Adw.Toast(title=GLib.markup_escape_text(str(msg)), timeout=3))
 
+    # DAP mode (~/dap/nrdap, 10-21): music only, radios + background off. The flag file is the
+    # truth (the shell's widget can toggle it too), so the button just mirrors it.
+    DAP_FLAG = os.path.expanduser("~/.local/state/nrdap/on")
+
+    def _dap_button(self):
+        self.dap_btn = Gtk.Button(label="DAP", css_classes=["flat", "dap-btn"],
+                                  tooltip_text="DAP mode: music only, radios off")
+        self.dap_btn.connect("clicked", lambda *_: self._dap_toggle())
+        os.makedirs(os.path.dirname(self.DAP_FLAG), exist_ok=True)
+        mon = Gio.File.new_for_path(os.path.dirname(self.DAP_FLAG)).monitor_directory(Gio.FileMonitorFlags.NONE, None)
+        mon.connect("changed", lambda *_: self._dap_sync())
+        self._dap_mon = mon
+        self._dap_sync()
+        return self.dap_btn
+
+    def _dap_sync(self):
+        on = os.path.exists(self.DAP_FLAG)
+        if on:
+            self.dap_btn.add_css_class("dap-on")
+        else:
+            self.dap_btn.remove_css_class("dap-on")
+
+    def _dap_toggle(self):
+        on = os.path.exists(self.DAP_FLAG)
+        self.toast("Leaving DAP mode…" if on else "DAP mode: radios off, background stopped")
+        subprocess.Popen([os.path.expanduser("~/dap/nrdap"), "off" if on else "on"], start_new_session=True)
+
     def build(self):
         self.nav = Adw.NavigationView()
         root = Adw.ToolbarView()
         hb = Adw.HeaderBar(css_classes=["vapor-bar"])
         hb.set_title_widget(label("NOTREAL.PLAYER", "app-title", xalign=0.5, ellipsize=False))
         hb.pack_start(icon_button("system-search-symbolic", lambda: self.nav.push(SearchPage(self))))
+        hb.pack_start(self._dap_button())
         hb.pack_end(icon_button("emblem-system-symbolic", self.show_settings))
         root.add_top_bar(hb)
         self.stack = Adw.ViewStack()

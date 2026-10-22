@@ -13,6 +13,7 @@ Clone this repo to `~/notrealOS` on the PC: the systemd units point there.
 | `matrix/` | Synapse + mautrix bridges (Docker) | 8008 |
 | `music/` | Navidrome (Docker), `spin_anim.py` animated covers | 4533, 4535 |
 | `feed/` | Redlib (Docker), `api.py` JSON for notreal.feed | 8095, 8096 |
+| `tube/` | video hub for notreal.tube, SearXNG (Docker) | 8099 |
 | `systemd/` | user units for the Python services | |
 
 ## AI: `llm/`
@@ -82,10 +83,15 @@ cd feed && docker compose up -d      # builds Redlib from source
 systemctl --user enable --now reddit-api
 ```
 
+## Video: `tube/`
+
+See [tube/README.md](tube/README.md): a venv with yt-dlp, SearXNG in Docker, then
+`systemctl --user enable --now videohub`.
+
 ## Expose to the tailnet only
 
 ```sh
-for p in 4533 4535 8095 8096; do tailscale serve --bg --tcp $p tcp://127.0.0.1:$p; done
+for p in 4533 4535 8095 8096 8099; do tailscale serve --bg --tcp $p tcp://127.0.0.1:$p; done
 ```
 
 Nothing here binds to `0.0.0.0`: from your home network or the internet these ports are closed.

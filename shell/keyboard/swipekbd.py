@@ -5,7 +5,7 @@ Replaces Stevia as sm.puri.OSK0. Left-handed: backspace sits left of Z, the best
 suggestion is the leftmost slot. Resize mode (⤢ in the suggestion bar) moves/scales
 the keyboard; settings live in ~/.config/swipekbd/settings.json per orientation.
 """
-import base64, json, math, os, sys, time
+import base64, json, math, os, sys, time, traceback
 from ctypes import CDLL
 CDLL("libgtk4-layer-shell.so.0")  # must load before libwayland-client
 
@@ -322,6 +322,7 @@ class Keyboard(Gtk.Application):
         self.shift_tap = 0.0
         self.active = False
         self.forced = None  # SetVisible override: None follow IM, False hidden
+        self.overview = False  # 10-20: Phosh overview open -> text-field focus must not pop us up
         self.purpose = 0
         self.hint = 0
         self.purpose_seen = None
@@ -384,6 +385,7 @@ class Keyboard(Gtk.Application):
       <method name="SetVisible"><arg type="b" name="visible" direction="in"/></method>
       <method name="Dismiss"/>
       <method name="Restore"/>
+      <method name="Overview"><arg type="b" name="open" direction="in"/></method>
       <property name="Visible" type="b" access="read"/></interface></node>"""
 
     def on_bus(self, conn, name):
@@ -400,11 +402,19 @@ class Keyboard(Gtk.Application):
         if method == "SetVisible":
             self.forced = bool(params.unpack()[0])
             self.apply_visible()
+        elif method == "Overview":
+            # 10-20: the overview widget says the Phosh overview is open (or closed). Swiping up
+            # out of an app sometimes left a text field focused (im A while in the overview):
+            # the keyboard popped up, squeezed the overview and covered the joystick.
+            self.overview = bool(params.unpack()[0])
+            if self.forced is not True:
+                self.forced = self.follow()
+            self.apply_visible()
         elif method == "Restore":
             # the shade is closed again (overview widget follows Phosh's log): come back
             if getattr(self, "dismissed", False):
                 self.dismissed = False
-                self.forced = None
+                self.forced = self.follow()
                 self.apply_visible()
         elif method == "Dismiss":
             # 10-16: the overview widget calls this when a touch starts in the top bar. Our
@@ -416,6 +426,10 @@ class Keyboard(Gtk.Application):
                 self.end_resize() if hasattr(self, "end_resize") else None
                 self.apply_visible()
         inv.return_value(None)
+
+    def follow(self):
+        """forced value for 'follow the text field': stay hidden while the overview is open."""
+        return False if self.overview else None
 
     def dbus_get(self, conn, sender, path, iface, prop):
         return GLib.Variant("b", self.visible)
@@ -512,7 +526,10 @@ class Keyboard(Gtk.Application):
             return
         if line is None:
             return
-        self.handle_event(line)
+        try:
+            self.handle_event(line)
+        except Exception:  # never stop listening: one bad event left it deaf, stuck in terminal mode (10-19)
+            traceback.print_exc()
         stream.read_line_async(GLib.PRIORITY_DEFAULT, None, self.on_line)
 
     def handle_event(self, line):
@@ -523,11 +540,11 @@ class Keyboard(Gtk.Application):
             # a NEW text field got focus: show again. Not on S/T: terminals (Console) send those
             # constantly and brought the keyboard straight back over the shade (10-17)
             self.dismissed = False
-            self.forced = None
+            self.forced = self.follow()
             GLib.idle_add(lambda: (self.apply_visible(), False)[1])
         if c == "A":
             self.active = True
-            self.forced = None
+            self.forced = self.follow()
             self.word = ""
             self.last_swipe = None
             self.before = ""
@@ -539,7 +556,7 @@ class Keyboard(Gtk.Application):
             self.dictation.cancel()
             self.mods.clear()
             self.active = False
-            self.forced = None
+            self.forced = self.follow()
             self.touches.clear()
             self.apply_visible()
         elif c == "T":
@@ -924,8 +941,11 @@ class Keyboard(Gtk.Application):
         mon = disp.get_monitor_at_surface(surf) if surf else None
         if mon is None:
             mon = disp.get_monitors().get_item(0)
+        if mon is None:  # screen off: no monitors at all (crashed 10-19); keep the last size
+            return self._last_geom if hasattr(self, "_last_geom") else Gdk.Rectangle()
         self.watch_monitor(mon)
-        return mon.get_geometry()
+        self._last_geom = mon.get_geometry()
+        return self._last_geom
 
     def conf_o(self):
         """Geometry of the active mode (full / one) for the current orientation."""
