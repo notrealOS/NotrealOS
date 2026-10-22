@@ -56,6 +56,12 @@ def _mix(a, b, t):
     return "#%02x%02x%02x" % tuple(round(x + (y - x) * t) for x, y in zip(a, b))
 
 
+def _sea(c, fallback="#3d7fc4"):
+    """The theme's blue, unless it is too grey to read as water (nasa): then a plain sea blue."""
+    r, g, b = [int(c[i:i + 2], 16) for i in (1, 3, 5)]
+    return c if b - min(r, g) >= 40 else fallback
+
+
 def theme_style():
     """(theme name, Google tile styles): vapor keeps its hand-made night style; any other theme
     (micro: paper + ink) is built from its palette."""
@@ -69,6 +75,7 @@ def theme_style():
     bg, deep, surf = pal["bg"], pal["bg-deep"], pal["surface"]
     fg, acc = pal["fg"], pal["accent"]
     ink_soft = _mix(fg, bg, 0.45)
+    sea = _sea(pal["blue"])
     return name, [
         {"elementType": "geometry", "stylers": [{"color": bg}]},
         {"elementType": "labels.text.fill", "stylers": [{"color": _mix(fg, bg, 0.2)}]},
@@ -79,7 +86,7 @@ def theme_style():
         {"featureType": "landscape.man_made", "elementType": "geometry", "stylers": [{"color": deep}]},
         {"featureType": "poi", "elementType": "geometry", "stylers": [{"color": deep}]},
         {"featureType": "poi", "elementType": "labels.text.fill", "stylers": [{"color": ink_soft}]},
-        {"featureType": "poi.park", "elementType": "geometry", "stylers": [{"color": _mix(bg, pal["cyan"], 0.22)}]},
+        {"featureType": "poi.park", "elementType": "geometry", "stylers": [{"color": _mix(bg, pal.get("mint", pal["cyan"]), 0.22)}]},
         {"featureType": "road", "elementType": "geometry.fill", "stylers": [{"color": surf}]},
         {"featureType": "road", "elementType": "geometry.stroke", "stylers": [{"color": _mix(bg, fg, 0.28)}]},
         {"featureType": "road", "elementType": "labels.text.fill", "stylers": [{"color": _mix(fg, bg, 0.3)}]},
@@ -88,8 +95,9 @@ def theme_style():
         {"featureType": "road.highway", "elementType": "labels.text.fill", "stylers": [{"color": fg}]},
         {"featureType": "transit", "elementType": "geometry", "stylers": [{"color": _mix(bg, acc, 0.35)}]},
         {"featureType": "transit.station", "elementType": "labels.text.fill", "stylers": [{"color": pal["orange"]}]},
-        {"featureType": "water", "elementType": "geometry", "stylers": [{"color": _mix(deep, pal["blue"], 0.10)}]},
-        {"featureType": "water", "elementType": "labels.text.fill", "stylers": [{"color": _mix(fg, pal["blue"], 0.4)}]},
+        # water must read as water on every theme: a clear blue cast, well apart from the land shades
+        {"featureType": "water", "elementType": "geometry", "stylers": [{"color": _mix(bg, sea, 0.32)}]},
+        {"featureType": "water", "elementType": "labels.text.fill", "stylers": [{"color": _mix(fg, sea, 0.6)}]},
     ]
 
 
@@ -215,7 +223,7 @@ class Google:
         name = "session_traffic" if traffic else "session"
         s = cfg.get(name)
         theme, styles = theme_style()
-        if (s and s.get("expiry", 0) - time.time() > 3 * 86400 and s.get("v") == 2
+        if (s and s.get("expiry", 0) - time.time() > 3 * 86400 and s.get("v") == 3
                 and s.get("theme", "vapor") == theme):
             return s["session"]
         body = {"mapType": "roadmap", "language": LANG + "-US", "region": cfg.get("region", "SE"),
@@ -227,7 +235,7 @@ class Google:
         except requests.RequestException as e:
             raise ApiError("offline: %s" % e) from e
         d = self._check(r)
-        cfg[name] = {"session": d["session"], "expiry": int(d.get("expiry", time.time() + 86400 * 13)), "v": 2,
+        cfg[name] = {"session": d["session"], "expiry": int(d.get("expiry", time.time() + 86400 * 13)), "v": 3,
                      "theme": theme}
         save_config(cfg)
         return d["session"]

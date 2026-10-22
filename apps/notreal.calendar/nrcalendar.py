@@ -9,6 +9,7 @@ Data via Evolution (cal.py); Evolution syncs our changes back to Google / Outloo
 import datetime
 import json
 import os
+import subprocess
 import sys
 import threading
 
@@ -342,6 +343,31 @@ class CalendarsSheet(Adw.Dialog):
         save_conf(self.win.conf)
 
 
+# REMIND ME choices (10-21): minutes BEFORE the start; all-day events start at 00:00, so
+# "9:00 that day" is -540 (after the start). Saved as a VALARM: Google/Outlook remind too,
+# and alarmd fires it on the phone (via ~/alarm/calremind.py).
+REMIND_TIMED = (("off", "OFF"), (0, "AT START"), (5, "5 MIN"), (10, "10 MIN"), (15, "15 MIN"),
+                (30, "30 MIN"), (60, "1 H"), (1440, "1 DAY"))
+REMIND_ALLDAY = (("off", "OFF"), (-540, "9:00 THAT DAY"), (360, "DAY BEFORE 18:00"), (2340, "2 DAYS BEFORE"))
+
+
+def remind_text(mins, all_day=False):
+    if mins == "off":
+        return "no reminder"
+    for m, t in REMIND_ALLDAY if all_day else REMIND_TIMED:
+        if m == mins:
+            return t.lower() + ("" if all_day or mins == 0 else " before")
+    if mins < 0:
+        return f"{-mins // 60}:{-mins % 60:02d} after the start" if all_day else f"{-mins} min after the start"
+    return f"{mins // 1440} d {mins % 1440 // 60} h before" if mins >= 1440 else f"{mins} min before"
+
+
+def refresh_reminders():
+    """Tell alarmd about the new/changed reminders (it re-reads them every 15 min anyway)."""
+    subprocess.Popen(["python3", os.path.expanduser("~/alarm/calremind.py")],
+                     stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, start_new_session=True)
+
+
 class EventPage(Adw.NavigationPage):
     def __init__(self, win, ev):
         super().__init__(title=ev["title"])
@@ -368,6 +394,8 @@ class EventPage(Adw.NavigationPage):
             r.append(dot(c.color, 12))
             r.append(label(f"{c.name} · {c.service}", "ev-cal"))
             box.append(r)
+        box.append(label("REMIND ME", "d-kind"))
+        box.append(label(", ".join(remind_text(m, ev["all_day"]) for m in ev["remind"]) or "no reminder", "d-value"))
         if ev["location"]:
             box.append(label("WHERE", "d-kind"))
             box.append(label(ev["location"], "d-value", wrap=True))
@@ -429,6 +457,8 @@ class EventWizard:
             self.title, self.start, self.all_day = ev["title"], ev["start"], ev["all_day"]
             self.minutes = 60 if ev["all_day"] else max(15, int((ev["end"] - ev["start"]).total_seconds() // 60))
             self.cal_uid, self.location, self.notes = ev["cal"], ev["location"], ev["notes"]
+            self.remind = ev["remind"][0] if ev["remind"] else "off"
+            self.remind_touched = False      # untouched: keep the event's own alarms as they are
         else:
             d = day or now.date()
             hour = now.hour + 1 if d == now.date() else 9
@@ -439,6 +469,8 @@ class EventWizard:
             last = win.conf.get("last_cal")
             self.cal_uid = last if last in writable else (google[0] if google else (writable[0] if writable else None))
             self.location, self.notes = "", ""
+            self.remind = win.conf.get("last_remind", 15)
+            self.remind_touched = True
         self.step_what()
 
     def step_what(self):
@@ -493,9 +525,40 @@ class EventWizard:
         box.append(self.time_box)
         self.allday_sw.connect("notify::active", lambda *_: self.time_box.set_visible(not self.allday_sw.get_active()))
         self.time_box.set_visible(not self.all_day)
+        box.append(label("REMIND ME", "d-kind"))
+        self.remind_box = Gtk.FlowBox(selection_mode=Gtk.SelectionMode.NONE, max_children_per_line=4,
+                                      column_spacing=6, row_spacing=6)
+        box.append(self.remind_box)
+        self.allday_sw.connect("notify::active", lambda *_: self.fill_remind(True))
+        self.fill_remind(False)
         self.refresh_time()
         self.win.nav.push(StepPage(self.title_text, "When?", box,
                                    [("NEXT", "suggested", self.when_next), ("FINISH", "", self.when_finish)]))
+
+    def fill_remind(self, switched):
+        """Chips for timed or all-day events; switching ALL DAY picks that kind's default."""
+        all_day = self.allday_sw.get_active()
+        choices = REMIND_ALLDAY if all_day else REMIND_TIMED
+        if switched:
+            self.remind = self.win.conf.get("last_remind_allday" if all_day else "last_remind",
+                                            -540 if all_day else 15)
+            self.remind_touched = True
+        values = [m for m, _ in choices]
+        if self.remind not in values:      # the event has some other reminder: show it too
+            choices = choices + ((self.remind, remind_text(self.remind, all_day).upper()),)
+        while (c := self.remind_box.get_first_child()):
+            self.remind_box.remove(c)
+        self.remind_btns = {}
+        for m, text in choices:
+            b = Gtk.ToggleButton(label=text, css_classes=["chip"], active=m == self.remind)
+            b.connect("clicked", lambda *_, m=m: self.set_remind(m))
+            self.remind_box.append(b)
+            self.remind_btns[m] = b
+
+    def set_remind(self, m):
+        self.remind, self.remind_touched = m, True
+        for k, b in self.remind_btns.items():
+            b.set_active(k == m)
 
     def nudge(self, mins):
         self.start = self.start + D(minutes=mins)
@@ -573,7 +636,8 @@ class EventWizard:
             return
         start = self.start.replace(hour=0, minute=0) if self.all_day else self.start
         end = start + (D(days=1) if self.all_day else D(minutes=self.minutes))
-        self.win.save_event(self.ev, self.cal_uid, self.title, start, end, self.all_day, self.location, self.notes)
+        self.win.save_event(self.ev, self.cal_uid, self.title, start, end, self.all_day, self.location, self.notes,
+                            self.remind if self.remind_touched else None)
 
 
 class Window(Adw.ApplicationWindow):
@@ -615,15 +679,18 @@ class Window(Adw.ApplicationWindow):
     def open_event(self, ev):
         self.nav.push(EventPage(self, ev))
 
-    def save_event(self, ev, cal_uid, title, start, end, all_day, location, notes):
+    def save_event(self, ev, cal_uid, title, start, end, all_day, location, notes, remind=None):
         self.conf["last_cal"] = cal_uid
+        if remind is not None:
+            self.conf["last_remind_allday" if all_day else "last_remind"] = remind
         save_conf(self.conf)
 
         def work():
             if ev:
-                self.store.update(ev, title, start, end, all_day, location, notes)
+                self.store.update(ev, title, start, end, all_day, location, notes, remind)
             else:
-                self.store.create(cal_uid, title, start, end, all_day, location, notes)
+                self.store.create(cal_uid, title, start, end, all_day, location, notes, remind)
+            refresh_reminders()
 
         def done(_r):
             self.toast(f"“{title}” saved")
@@ -638,7 +705,7 @@ class Window(Adw.ApplicationWindow):
             self.toast(f"“{ev['title']}” deleted")
             self.nav.pop_to_tag("main")
             self.main.reload()
-        bg(lambda: self.store.delete(ev, all_occurrences), done, lambda e: self.toast(f"not deleted: {e}"))
+        bg(lambda: (self.store.delete(ev, all_occurrences), refresh_reminders()), done, lambda e: self.toast(f"not deleted: {e}"))
 
 
 class App(Adw.Application):

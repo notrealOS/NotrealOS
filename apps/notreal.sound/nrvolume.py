@@ -1,5 +1,8 @@
 #!/usr/bin/env python3
-"""Sound: two volume sliders (10-13).
+"""Sound: ring mode + two volume sliders (10-13, mode 10-19).
+
+MODE = feedbackd's profile: RING = full, VIBRATE = quiet (buzz, no sound), SILENT = silent
+(LED only). Same setting as the bell tile in the Phosh shade; alarms still ring (alarmd's own paplay).
 
 MEDIA = the default sink's volume (same as Phosh's slider and the volume keys).
 NOTIFICATIONS = ~/.config/nrvolume.json "notify", applied by nrvolumed.py.
@@ -14,7 +17,7 @@ import sys
 import gi
 gi.require_version("Gtk", "4.0")
 gi.require_version("Adw", "1")
-from gi.repository import Adw, GLib, Gtk  # noqa: E402
+from gi.repository import Adw, Gio, GLib, Gtk  # noqa: E402
 
 import pulsectl  # noqa: E402
 import notareal_theme  # noqa: E402
@@ -23,6 +26,9 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 APP_ID = "dev.notareal.Sound"
 CONF = os.path.expanduser("~/.config/nrvolume.json")
 PING = "/usr/share/sounds/phosh/stereo/message-new-instant.oga"
+MODES = (("full", "RING", "audio-volume-high-symbolic"),
+         ("quiet", "VIBRATE", "phone-symbolic"),
+         ("silent", "SILENT", "notifications-disabled-symbolic"))
 
 
 def read_notify():
@@ -61,6 +67,7 @@ class Window(Adw.ApplicationWindow):
 
         box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=6, margin_top=18,
                       margin_bottom=18, margin_start=16, margin_end=16)
+        self.mode_row(box)
         self.media_btn, self.media = self.row(box, "MEDIA", "music, videos, voice", "audio-volume-high-symbolic")
         self.note_btn, self.note = self.row(box, "NOTIFICATIONS", "messages, mail, ringtone",
                                             "preferences-system-notifications-symbolic")
@@ -101,6 +108,46 @@ class Window(Adw.ApplicationWindow):
         line.append(sc)
         box.append(line)
         return btn, sc
+
+    # --- mode = feedbackd profile ------------------------------------------------------
+    def mode_row(self, box):
+        lb = Gtk.Label(label="MODE", xalign=0)
+        lb.add_css_class("sheet-title")
+        box.append(lb)
+        line = Gtk.Box(homogeneous=True, margin_top=4)
+        line.add_css_class("linked")
+        self.fb = Gio.Settings.new("org.sigxcpu.feedbackd")
+        self.mode_btns = {}
+        group = None
+        for prof, label, icon in MODES:
+            b = Gtk.ToggleButton(group=group)
+            group = group or b
+            c = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=2, margin_top=6, margin_bottom=6)
+            c.append(Gtk.Image(icon_name=icon))
+            c.append(Gtk.Label(label=label))
+            b.set_child(c)
+            b.connect("toggled", self.mode_picked, prof)
+            self.mode_btns[prof] = b
+            line.append(b)
+        box.append(line)
+        self.mode_synced()
+        self.fb.connect("changed::profile", lambda *a: self.mode_synced())
+
+    def mode_synced(self):
+        b = self.mode_btns.get(self.fb.get_string("profile"))
+        if b and not b.get_active():
+            self.busy = True
+            b.set_active(True)
+            self.busy = False
+
+    def mode_picked(self, b, prof):
+        if self.busy or not b.get_active() or self.fb.get_string("profile") == prof:
+            return
+        self.fb.set_string("profile", prof)
+        if prof == "quiet":
+            # a buzz so you feel the switch
+            subprocess.Popen(["fbcli", "-E", "message-new-instant"],
+                             stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
 
     # --- media = default sink -----------------------------------------------------------
     def sink(self):

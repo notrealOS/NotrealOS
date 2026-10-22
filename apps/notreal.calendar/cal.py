@@ -24,6 +24,21 @@ def local_tzid():
 TZ = ICalGLib.Timezone.get_builtin_timezone(local_tzid())
 
 
+def reminders(comp):
+    """Minutes BEFORE the start of each relative VALARM (negative = after the start), sorted.
+    Alarms relative to the end or at a fixed time are skipped."""
+    out = []
+    a = comp.get_first_component(ICalGLib.ComponentKind.VALARM_COMPONENT)
+    while a:
+        p = a.get_first_property(ICalGLib.PropertyKind.TRIGGER_PROPERTY)
+        trig = p.get_trigger() if p else None
+        related = p.get_first_parameter(ICalGLib.ParameterKind.RELATED_PARAMETER) if p else None
+        if trig and trig.get_time().is_null_time() and not (related and "END" in related.as_ical_string()):
+            out.append(-trig.get_duration().as_int() // 60)
+        a = comp.get_next_component(ICalGLib.ComponentKind.VALARM_COMPONENT)
+    return sorted(set(out), reverse=True)
+
+
 def _when(itime):
     """ICalGLib.Time -> (local datetime, all_day)."""
     if itime is None or itime.is_null_time():
@@ -94,7 +109,7 @@ class Store:
 
     def events(self, start, end, hidden=()):
         """Occurrences between two datetimes, sorted. Each: dict(cal, uid, rid, title, start, end,
-        all_day, location, notes, recurring)."""
+        all_day, location, notes, remind (minutes before), recurring)."""
         t0, t1 = int(start.timestamp()), int(end.timestamp())
         out, lock = [], threading.Lock()
 
@@ -118,6 +133,7 @@ class Store:
                     "title": comp.get_summary() or "(no title)", "start": s, "end": e or s,
                     "all_day": all_day, "location": comp.get_location() or "",
                     "notes": comp.get_description() or "",
+                    "remind": reminders(comp),
                     "recurring": bool(comp.get_first_property(ICalGLib.PropertyKind.RRULE_PROPERTY)) or bool(rid),
                 })
                 return True
@@ -147,6 +163,26 @@ class Store:
         # and read local times back 2 h off (10-16)
         return ICalGLib.Time.new_from_timet_with_zone(int(dt.timestamp()), 0, ICalGLib.Timezone.get_utc_timezone())
 
+    @staticmethod
+    def _set_remind(comp, title, remind):
+        """remind = minutes before the start (negative: after); "off" = no reminder; None = keep."""
+        if remind is None:
+            return
+        old = []
+        a = comp.get_first_component(ICalGLib.ComponentKind.VALARM_COMPONENT)
+        while a:
+            old.append(a)
+            a = comp.get_next_component(ICalGLib.ComponentKind.VALARM_COMPONENT)
+        for a in old:
+            comp.remove_component(a)
+        if remind == "off":
+            return
+        a = ICalGLib.Component.new_valarm()
+        a.add_property(ICalGLib.Property.new_action(ICalGLib.PropertyAction.DISPLAY))
+        a.add_property(ICalGLib.Property.new_trigger(ICalGLib.Trigger.new_from_int(-int(remind) * 60)))
+        a.add_property(ICalGLib.Property.new_description(title))
+        comp.add_component(a)
+
     def _fill(self, comp, title, start, end, all_day, location, notes):
         comp.set_summary(title)
         comp.set_dtstart(self._itime(start, all_day))
@@ -156,17 +192,19 @@ class Store:
         comp.set_location(location or "")
         comp.set_description(notes or "")
 
-    def create(self, cal_uid, title, start, end, all_day=False, location="", notes=""):
+    def create(self, cal_uid, title, start, end, all_day=False, location="", notes="", remind=None):
         cal = self.by_uid(cal_uid)
         comp = ICalGLib.Component.new_vevent()
         self._fill(comp, title, start, end, all_day, location, notes)
+        self._set_remind(comp, title, remind)
         ok, uid = cal.client.create_object_sync(comp, ECal.OperationFlags.NONE, None)
         return uid
 
-    def update(self, ev, title, start, end, all_day=False, location="", notes=""):
+    def update(self, ev, title, start, end, all_day=False, location="", notes="", remind=None):
         cal = self.by_uid(ev["cal"])
         ok, comp = cal.client.get_object_sync(ev["uid"], ev["rid"], None)
         self._fill(comp, title, start, end, all_day, location, notes)
+        self._set_remind(comp, title, remind)
         cal.client.modify_object_sync(comp, ECal.ObjModType.THIS if ev["rid"] else ECal.ObjModType.ALL,
                                       ECal.OperationFlags.NONE, None)
 

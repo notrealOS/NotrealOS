@@ -1,0 +1,13 @@
+[Unit]
+Description=notreal.tube video hub (yt-dlp + SearXNG + ffmpeg)
+After=network-online.target
+
+[Service]
+ExecStart=%h/notrealOS/pc/tube/venv/bin/python %h/notrealOS/apps/notreal.tube/hub.py
+Environment=PATH=%h/notrealOS/pc/tube/venv/bin:/usr/local/bin:/usr/bin
+Environment=VIDEOHUB_DATA=%h/.local/share/videohub
+Restart=always
+RestartSec=3
+
+[Install]
+WantedBy=default.target

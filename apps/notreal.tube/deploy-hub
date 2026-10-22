@@ -1,0 +1,8 @@
+#!/bin/sh
+# copy hub.py (this folder) to the PC and restart its service; the PC's ssh login comes from ~/.config/notreal/pc.json
+set -e
+HERE=$(dirname "$(readlink -f "$0")")
+SSH=$(python3 -c 'import json,os;print(json.load(open(os.path.expanduser("~/.config/notreal/pc.json")))["ssh"])')
+python3 -m py_compile "$HERE/hub.py"
+scp -q "$HERE/hub.py" "$SSH:videohub/hub.py"
+ssh "$SSH" 'systemctl --user restart videohub && sleep 1 && systemctl --user is-active videohub'

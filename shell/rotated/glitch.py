@@ -405,3 +405,51 @@ class Listening:
 
     def hide(self):
         self.win.set_visible(False)
+
+
+class Stop:
+    """Tappable STOP pill (bottom left: the user is left-handed) while the voice assistant listens,
+    thinks or speaks. Colours follow the active notareal theme, re-read every time it shows."""
+
+    def __init__(self, app, on_stop):
+        self.win = Gtk.ApplicationWindow(application=app)
+        self.win.add_css_class("voice-stop")
+        LayerShell.init_for_window(self.win)
+        LayerShell.set_namespace(self.win, "voice-stop")
+        LayerShell.set_layer(self.win, LayerShell.Layer.OVERLAY)
+        LayerShell.set_keyboard_mode(self.win, LayerShell.KeyboardMode.NONE)
+        LayerShell.set_exclusive_zone(self.win, 0)   # 0 = sits above the keyboard's exclusive zone
+        LayerShell.set_anchor(self.win, LayerShell.Edge.BOTTOM, True)
+        LayerShell.set_anchor(self.win, LayerShell.Edge.LEFT, True)
+        LayerShell.set_margin(self.win, LayerShell.Edge.BOTTOM, 150)   # clear of the bottom-edge swipe
+        LayerShell.set_margin(self.win, LayerShell.Edge.LEFT, 28)
+        self.css = Gtk.CssProvider()
+        Gtk.StyleContext.add_provider_for_display(Gdk.Display.get_default(), self.css, 800)
+        self.label = Gtk.Label()
+        btn = Gtk.Button(child=self.label, css_classes=["voice-stop-btn"])
+        btn.connect("clicked", lambda b: on_stop())
+        self.win.set_child(btn)
+
+    def _style(self):
+        try:
+            import notareal_theme as t
+            bg, fg, dot = t.hex("surface", "#232a4d"), t.hex("fg-bright", "#eef0ff"), t.hex("orange", "#ffb86b")
+            font = t.value("font", "") or '"JetBrains Mono", monospace'
+            corners = float(t.value("corners", "1") or 1)
+        except Exception:
+            bg, fg, dot, font, corners = "#232a4d", "#eef0ff", "#ffb86b", '"JetBrains Mono", monospace', 1.0
+        self.css.load_from_string(
+            "window.voice-stop { background: transparent; }"
+            ".voice-stop-btn { background: %s; color: %s; font-family: %s; font-weight: 800; font-size: 15pt;"
+            " letter-spacing: 3px; padding: 14px 26px; min-height: 0; border: none; border-radius: %dpx;"
+            " box-shadow: 0 6px 18px rgba(0,0,0,0.35); }"
+            ".voice-stop-btn:active { background: %s; color: %s; }"
+            % (bg, fg, font, round(26 * corners), dot, bg))
+        self.label.set_markup('<span foreground="%s">■</span>  STOP' % dot)
+
+    def show(self):
+        self._style()
+        self.win.present()
+
+    def hide(self):
+        self.win.set_visible(False)

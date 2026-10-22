@@ -58,6 +58,11 @@ try:
 except Exception as e:
     print("no listening overlay:", e, flush=True)
     Listening = None
+try:
+    from glitch import Stop  # noqa: E402  tappable STOP pill (cancel)
+except Exception as e:
+    print("no stop button:", e, flush=True)
+    Stop = None
 
 MUSIC = "org.mpris.MediaPlayer2.notarealPlayer"
 
@@ -584,29 +589,52 @@ def pc_speak(text, out):
         return False
 
 
-def speak(text):
-    """Read text aloud: Kokoro on the PC, else piper (blocking until done)."""
+_live = set()   # whisper / piper / paplay now running: STOP kills them
+
+
+def run_tracked(cmd, timeout, input=None):
+    """subprocess.run() that STOP can kill; returns stdout ("" on timeout or kill)."""
+    p = subprocess.Popen(cmd, stdin=subprocess.PIPE if input is not None else subprocess.DEVNULL,
+                         stdout=subprocess.PIPE, stderr=subprocess.DEVNULL, text=True)
+    _live.add(p)
+    try:
+        return p.communicate(input, timeout=timeout)[0] or ""
+    except subprocess.TimeoutExpired:
+        p.kill()
+        p.communicate()
+        return ""
+    finally:
+        _live.discard(p)
+
+
+def kill_live():
+    for p in list(_live):
+        try:
+            p.kill()
+        except OSError:
+            pass
+
+
+def speak(text, alive=lambda: True):
+    """Read text aloud: Kokoro on the PC, else piper (blocking until done or STOP)."""
     out = os.path.join(RUN, "voiced-say.wav")
     if pc_speak(text, out):
-        try:
-            subprocess.run(["paplay", out], timeout=120)
-        except subprocess.TimeoutExpired:
-            pass
+        if alive():
+            run_tracked(["paplay", out], 120)
         return
     if not os.path.exists(TTS_VOICE):
         return
-    try:
-        subprocess.run(["piper", "-m", TTS_VOICE, "--length-scale", TTS_SPEED, "-f", out], input=text, text=True,
-                       capture_output=True, timeout=60)
-        subprocess.run(["paplay", out], timeout=120)
-    except subprocess.TimeoutExpired:
-        pass
+    run_tracked(["piper", "-m", TTS_VOICE, "--length-scale", TTS_SPEED, "-f", out], 60, input=text)
+    if alive():
+        run_tracked(["paplay", out], 120)
 
 
 class Voiced:
-    def __init__(self, thinking=None, listening=None):
+    def __init__(self, thinking=None, listening=None, app=None):
         self.thinking = thinking
         self.listening = listening
+        self.stop_btn = Stop(app, self.cancel) if Stop and app else None
+        self.gen = 0   # bumped by STOP: a worker whose generation is stale throws its result away
         self.music_paused = False
         self.llm = Llm("qwen-1.7b", LLM_MODEL, LLM_PORT)
         # questions use the bigger model when it is there; only one model runs at a time (RAM)
@@ -688,6 +716,8 @@ class Voiced:
         glyph(True)
         if self.listening:
             self.listening.ready()
+        if self.stop_btn:
+            self.stop_btn.show()
         # music would drown the cue / answer, and in HI-FI mode it owns the DAC: Stop frees it
         if music_call(None, "PlaybackStatus") == "Playing":
             music_call("Stop")
@@ -720,10 +750,29 @@ class Voiced:
         rec, self.rec = self.rec, None
         if self.listening:
             self.listening.hide()
+        if self.stop_btn and not self.busy:
+            self.stop_btn.hide()
         if rec:
             rec.kill()
             rec.wait()
         self.resume_music()
+
+    def cancel(self):
+        """STOP tapped: drop whatever is going on (recording, thinking, speaking)."""
+        log("cancelled")
+        self.gen += 1
+        if self.hold_timer:
+            GLib.source_remove(self.hold_timer)
+            self.hold_timer = 0
+        glyph(False)
+        self.busy = False
+        self.cancel_recording()     # also resumes the music
+        kill_live()
+        self.think(False)
+        if self.stop_btn:
+            self.stop_btn.hide()
+        buzz()
+        notify("Cancelled", "", 1200)
 
     def stop_recording(self):
         if getattr(self, "cue_timer", 0):
@@ -773,17 +822,21 @@ class Voiced:
         remote = pc_transcribe(WAV, STT_LANG, STT_PROMPT)
         if remote is not None:
             return re.sub(r"\[[^\]]*\]|\([^)]*\)", "", " ".join(remote.split())).strip()
-        out = subprocess.run(
+        out = run_tracked(
             ["whisper-cli", "-m", STT_MODEL, "-f", WAV, "-l", STT_LANG, "-nt", "-np", "--prompt", STT_PROMPT,
              "-t", STT_THREADS, "-ng"],  # -ng: the Vulkan (Adreno) backend is broken
-            capture_output=True, text=True, timeout=120).stdout
+            120)
         text = " ".join(out.split()).strip()
         return re.sub(r"\[[^\]]*\]|\([^)]*\)", "", text).strip()  # drop [BLANK_AUDIO] etc.
 
     def process(self):
+        g = self.gen
+        alive = lambda: g == self.gen  # noqa: E731  False once STOP was tapped
         try:
             t0 = time.time()
             text = self.transcribe()
+            if not alive():
+                return
             log("heard: %r (%.1fs)" % (text, time.time() - t0))
             if len(text) < 3:
                 GLib.idle_add(notify, "Didn't catch that", "Hold volume up while you speak.")
@@ -797,19 +850,30 @@ class Voiced:
             else:
                 parser = self.big if self.big.running() else self.llm
                 r = parser.parse(clock_phrases(text))
+            if not alive():
+                log("dropped (cancelled):", r.get("type"))
+                return
             if r.get("type") == "question":
-                self.answer(text)
+                self.answer(text, alive)
                 log("done in %.1fs" % (time.time() - t0))
                 return
             log("done in %.1fs" % (time.time() - t0))
-            GLib.idle_add(self.act, r, text)
+            GLib.idle_add(lambda: alive() and self.act(r, text))
         except Exception as e:
             log("error:", repr(e))
-            GLib.idle_add(notify, "Voice assistant error", str(e)[:200])
+            if alive():
+                GLib.idle_add(notify, "Voice assistant error", str(e)[:200])
         finally:
-            GLib.idle_add(self.think, False)
-            self.busy = False
-            GLib.idle_add(self.resume_music)
+            if alive():          # after STOP, cancel() already cleaned up (and a new command may run)
+                GLib.idle_add(self.think, False)
+                self.busy = False
+                GLib.idle_add(self.resume_music)
+                GLib.idle_add(self.hide_stop)
+
+    def hide_stop(self):
+        if self.stop_btn:
+            self.stop_btn.hide()
+        return False
 
     def resume_music(self):
         if self.music_paused:
@@ -822,15 +886,17 @@ class Voiced:
             self.thinking.start() if on else self.thinking.stop()
         return False
 
-    def answer(self, question):
+    def answer(self, question, alive=lambda: True):
         if self.big is not self.llm:
             self.llm.stop()  # free RAM for the big model
             GLib.idle_add(notify, "Thinking…", question, 8000)
         text = strip_markdown(self.big.chat(ANSWER_PROMPT % question, 160, temperature=0.3))
+        if not alive():
+            return
         GLib.idle_add(self.think, False)
         GLib.idle_add(notify, question[:60], text, 20000)
         buzz("message-new-instant")
-        speak(text)
+        speak(text, alive)
 
     def act(self, r, heard):
         kind, text = r.get("type"), (r.get("text") or heard).strip()
@@ -947,7 +1013,7 @@ def main():
 
     def activate(a):
         a.hold()
-        v = a.voiced = Voiced(Thinking(a) if Thinking else None, Listening(a) if Listening else None)
+        v = a.voiced = Voiced(Thinking(a) if Thinking else None, Listening(a) if Listening else None, a)
 
         def test():  # kill -USR1 <pid>: 5 s of thinking glitches
             v.think(True)

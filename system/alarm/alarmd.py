@@ -15,6 +15,9 @@ it ("wake me up at 7"), this daemon watches it.
   [{"due" (epoch), "text"}], written by voiced and the shell's search box, shown by the overview
   widget. They wake the phone from sleep like alarms, then chime + vibrate, read the text aloud
   (piper) and post a notarealShell notification (glyphd lights its reminder LED for that app name).
+- Calendar reminders (10-21): ~/.local/share/alarmd/calendar.json [{"due", "summary", "text", "key"}],
+  written by calremind.py (run here every CAL_REFRESH_S + after a resume, and by notreal.calendar
+  after a save). Fired like reminders, as a "notreal.calendar" notification with the event title.
 """
 import json
 import os
@@ -50,7 +53,11 @@ RING_MAX_S = 600
 SNOOZE_S = 600
 RING_VOLUME = 70      # % speaker volume while ringing (if it was lower)
 REMINDERS = os.path.expanduser("~/.local/share/phantomshell/reminders.json")
+CALENDAR = os.path.join(DATA, "calendar.json")
+CALREMIND = os.path.join(HERE, "calremind.py")
+CAL_REFRESH_S = 900
 PIPER_VOICE = os.path.expanduser("~/voice/models/en_US-amy-medium.onnx")
+SPEAK_REMINDERS = False   # True = read reminders aloud after the chime
 PC_TTS = "http://%s:8097/tts" % pc("host", "localhost")   # Kokoro on the PC (same voice as voiced); piper is the fallback
 FIRE_HOLD_S = 25      # stay awake this long after a reminder fires (sound + speech)
 
@@ -83,12 +90,42 @@ def load_reminders():
         return []
 
 
+def load_calendar():
+    try:
+        with open(CALENDAR) as f:
+            return json.load(f)
+    except (OSError, ValueError):
+        return []
+
+
+def save_calendar(items):
+    tmp = CALENDAR + ".tmp"
+    with open(tmp, "w") as f:
+        json.dump(items, f, ensure_ascii=False, indent=1)
+    os.replace(tmp, CALENDAR)
+
+
 def save_reminders(items):
     os.makedirs(os.path.dirname(REMINDERS), exist_ok=True)
     tmp = REMINDERS + ".tmp"
     with open(tmp, "w") as f:
         json.dump(sorted(items, key=lambda r: r["due"]), f, indent=1)
     os.replace(tmp, REMINDERS)
+
+
+def next_at(a, after):
+    """Next ring time of a clock-app alarm ({"hour", "minute", "repeat": [0=Mon..6]}) after `after`."""
+    t = time.localtime(after)
+    for d in range(8):
+        cand = time.mktime((t.tm_year, t.tm_mon, t.tm_mday + d, a["hour"], a["minute"], 0, 0, 0, -1))
+        if cand > after and (not a.get("repeat") or time.localtime(cand).tm_wday in a["repeat"]):
+            return cand
+    return after + 86400
+
+
+def live(alarms):
+    """Alarms that will ring: the clock app keeps switched-off ones in the file ("off": true)."""
+    return [a for a in alarms if not a.get("off")]
 
 
 def add_alarm(at, label=""):
@@ -117,6 +154,11 @@ class Alarmd:
         self.fired_until = 0.0
         self.rmon = Gio.File.new_for_path(REMINDERS).monitor_file(Gio.FileMonitorFlags.WATCH_MOVES, None)
         self.rmon.connect("changed", lambda *a: GLib.timeout_add(300, self._changed))
+        self.cmon = Gio.File.new_for_path(CALENDAR).monitor_file(Gio.FileMonitorFlags.WATCH_MOVES, None)
+        self.cmon.connect("changed", lambda *a: GLib.timeout_add(300, self._changed))
+        self.cal_ran = 0.0
+        GLib.timeout_add_seconds(CAL_REFRESH_S, lambda: (self.refresh_calendar(), True)[1])
+        GLib.timeout_add_seconds(20, lambda: (self.refresh_calendar(), False)[1])   # EDS up first
         # after a resume, re-check right away (the poll timer was frozen during suspend)
         self.bus.signal_subscribe("org.freedesktop.login1", "org.freedesktop.login1.Manager",
                                   "PrepareForSleep", "/org/freedesktop/login1", None,
@@ -136,12 +178,20 @@ class Alarmd:
             self.arm()          # make sure the RTC is set for the next alarm
         else:
             log("resumed")
+            GLib.timeout_add_seconds(30, lambda: (self.refresh_calendar(), False)[1])   # network back first
             GLib.idle_add(lambda: (self.poll(), False)[1])   # poll() returns True (for the repeating timer): an idle must not
+
+    def refresh_calendar(self):
+        """calremind.py in its own process (EDS stays out of this daemon); at most once a minute."""
+        if time.time() - self.cal_ran < 60:
+            return
+        self.cal_ran = time.time()
+        subprocess.Popen(["python3", CALREMIND], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
 
     def arm(self):
         """Set the RTC to wake the phone WAKE_EARLY s before the next alarm."""
         now = time.time()
-        upcoming = [a["at"] for a in load() if a["at"] > now] + [r["due"] for r in load_reminders() if r["due"] > now]
+        upcoming = [a["at"] for a in live(load()) if a["at"] > now] + [r["due"] for r in load_reminders() + load_calendar() if r["due"] > now]
         if not upcoming:
             self._write_wake("0")
             self.armed_for = None
@@ -171,8 +221,8 @@ class Alarmd:
     def poll(self):
         now = time.time()
         alarms = load()
-        due = [a for a in alarms if a["at"] <= now]
-        soon = [a for a in alarms if now < a["at"] <= now + HOLD_BEFORE]
+        due = [a for a in live(alarms) if a["at"] <= now]
+        soon = [a for a in live(alarms) if now < a["at"] <= now + HOLD_BEFORE]
         reminders = load_reminders()
         r_due = [r for r in reminders if r["due"] <= now]
         r_soon = [r for r in reminders if now < r["due"] <= now + HOLD_BEFORE]
@@ -180,6 +230,17 @@ class Alarmd:
             save_reminders([r for r in reminders if r["due"] > now])
             for r in r_due:
                 self.fire_reminder(r, late=now - r["due"] > 90)
+            self.fired_until = now + FIRE_HOLD_S
+            GLib.timeout_add_seconds(FIRE_HOLD_S + 1, lambda: (self.poll(), False)[1])
+            self.arm()
+        cals = load_calendar()
+        c_due = [r for r in cals if r["due"] <= now]
+        r_soon += [r for r in cals if now < r["due"] <= now + HOLD_BEFORE]
+        if c_due:
+            save_calendar([r for r in cals if r["due"] > now])
+            for r in c_due:
+                if now - r["due"] < 3 * 3600:     # phone was off for hours: skip stale ones
+                    self.fire_reminder(dict(r, app="notreal.calendar"), late=now - r["due"] > 90)
             self.fired_until = now + FIRE_HOLD_S
             GLib.timeout_add_seconds(FIRE_HOLD_S + 1, lambda: (self.poll(), False)[1])
             self.arm()
@@ -193,7 +254,15 @@ class Alarmd:
                 GLib.timeout_add(max(0, int((a["at"] - now) * 1000)), lambda: (self.poll(), False)[1])
         if due and not self.ringing:
             a = min(due, key=lambda x: x["at"])
-            save([x for x in alarms if x["id"] != a["id"]])
+            # 10-19 clock app: a repeating alarm moves on to its next day, a one-off clock alarm
+            # switches itself off (stays in the list); plain voice alarms/timers are removed
+            rest = [x for x in alarms if x["id"] != a["id"]]
+            if a.get("repeat") and "hour" in a:
+                rest.append(dict(a, at=next_at(a, now + 60)))
+            elif "hour" in a:
+                rest.append(dict(a, off=True))
+            save(rest)
+            self.exact.discard(a["id"])
             if now - a["at"] < 3 * 3600:      # phone was off for hours: don't ring stale alarms
                 self.ring(a)
             self.arm()
@@ -206,14 +275,15 @@ class Alarmd:
         text = r.get("text", "")
         log("REMINDER", r)
         Alarmd._wake_screen()
-        # alarm sound + vibration (feedbackd), then the reminder read aloud (Kokoro on the PC, else piper)
-        threading.Thread(target=Alarmd._say_reminder, args=(text,), daemon=True).start()
+        # alarm sound + vibration (feedbackd); reading the reminder aloud is off (user, 10-19)
+        threading.Thread(target=Alarmd._say_reminder, args=(text, SPEAK_REMINDERS), daemon=True).start()
         try:
             Gio.bus_get_sync(Gio.BusType.SESSION, None).call_sync(
                 "org.freedesktop.Notifications", "/org/freedesktop/Notifications",
                 "org.freedesktop.Notifications", "Notify",
                 GLib.Variant("(susssasa{sv}i)", (
-                    "notarealShell", 0, "alarm-symbolic", "Reminder" + (" (late, phone was off)" if late else ""),
+                    r.get("app", "notarealShell"), 0, "alarm-symbolic",
+                    r.get("summary", "Reminder") + (" (late, phone was off)" if late else ""),
                     text, [], {"urgency": GLib.Variant("y", 2),
                                "category": GLib.Variant("s", "x-phantomshell.reminder")}, -1)),
                 None, Gio.DBusCallFlags.NONE, 2000, None)
@@ -221,9 +291,11 @@ class Alarmd:
             log("notify failed:", e.message)
 
     @staticmethod
-    def _say_reminder(text):
+    def _say_reminder(text, speak=True):
         wav = os.path.join(os.environ.get("XDG_RUNTIME_DIR", "/tmp"), "alarmd-reminder.wav")
         subprocess.run(["sh", "-c", "fbcli -E alarm-clock-elapsed -t 4 >/dev/null 2>&1"])
+        if not speak:
+            return
         time.sleep(1)
         try:
             body = json.dumps({"text": "Reminder: " + text, "voice": "af_heart", "speed": 1.05}).encode()

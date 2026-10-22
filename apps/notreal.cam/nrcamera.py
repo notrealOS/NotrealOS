@@ -50,6 +50,7 @@ sys.path.insert(0, os.path.expanduser("~/theme"))
 import notareal_theme  # noqa: E402
 import fx  # noqa: E402
 import film  # noqa: E402
+import rawdev  # noqa: E402
 from camsvc import restart_camera_services  # noqa: E402
 
 APP_ID = "dev.notareal.Camera"
@@ -196,7 +197,7 @@ class Window(Adw.ApplicationWindow):
         super().__init__(application=app, title="Camera")
         self.set_default_size(360, 800)
         self.conf = {"lens": "main", "hq": True, "fx": False, "flash": "off", "timer": 0, "mode": "photo",
-                     "film": None}
+                     "film": None, "hdr": False}
         self.conf.update(load_conf())
         self.conf["fx"] = False      # FX removed (user 10-17)
         self.rec = None              # the running recording: dict(bin, pad, path, t0, ...)
@@ -256,6 +257,10 @@ class Window(Adw.ApplicationWindow):
         self.film_btn = Gtk.Button(css_classes=["cam-chip"])
         self.film_btn.connect("clicked", lambda *_: self._cycle_film())
         top.append(self.film_btn)
+        # HDR (main lens, 12 MP): normal + -3 EV raw frames merged by rawdev
+        self.hdr_btn = Gtk.ToggleButton(label="HDR", css_classes=["cam-chip"], active=self.conf["hdr"])
+        self.hdr_btn.connect("toggled", self._hdr_toggled)
+        top.append(self.hdr_btn)
         top.append(self.flash_btn)
         top.append(self.timer_btn)
         spacer = Gtk.Box(hexpand=True)
@@ -351,6 +356,8 @@ class Window(Adw.ApplicationWindow):
         hq_ok = lens["still"] is not None and not video
         self.hq_btn.set_sensitive(hq_ok)
         self.hq_btn.set_label("1440p" if video else "12 MP" if (self.conf["hq"] and hq_ok) else "FAST")
+        self.hdr_btn.set_sensitive(hq_ok and self.conf["hq"] and lens["key"] == "main")
+        (self.hdr_btn.add_css_class if self.conf["hdr"] else self.hdr_btn.remove_css_class)("on")
         self.mode_btn.set_label("● VIDEO" if video else "◉ PHOTO")
         self.mode_btn.set_sensitive(not self.rec)
         (self.shutter.add_css_class if video else self.shutter.remove_css_class)("video")
@@ -551,6 +558,11 @@ class Window(Adw.ApplicationWindow):
         save_conf(self.conf)
         self._refresh_chips()
 
+    def _hdr_toggled(self, btn):
+        self.conf["hdr"] = btn.get_active()
+        save_conf(self.conf)
+        self._refresh_chips()
+
     def _cycle_flash(self):
         order = ["off", "on", "torch"]
         self.conf["flash"] = order[(order.index(self.conf["flash"]) + 1) % 3]
@@ -734,7 +746,7 @@ class Window(Adw.ApplicationWindow):
         if tex:
             self.freeze.set_paintable(tex.get_current_image())
             self.freeze.set_visible(True)
-        self.say("HOLD STILL · 12 MP")
+        self.say("HOLD STILL · HDR" if self.conf["hdr"] and lens["key"] == "main" else "HOLD STILL · 12 MP")
         self.stop_preview()
         if flash:
             self.led(True)
@@ -765,6 +777,8 @@ class Window(Adw.ApplicationWindow):
             GLib.idle_add(self._after_full)
             GLib.idle_add(self.say, "12 MP: camera not found")
             return
+        if lens["key"] == "main":
+            return self._grab_raw(lens, held, theme, flash)
         env = dict(os.environ, LIBCAMERA_SOFTISP_MODE="cpu")
         cmd = ["cam", "-c", self.cams[lens["path"]], "-s",
                f"role=still,width={w},height={h},pixelformat=BGR888",
@@ -789,6 +803,32 @@ class Window(Adw.ApplicationWindow):
             for fr in frames:
                 os.remove(fr)
         self._save(rgb, lens, held, theme)
+
+    def _grab_raw(self, lens, held, theme, flash):
+        """Main lens: raw frames developed by rawdev (the soft ISP's white balance is off, 10-22)."""
+        hdr = bool(self.conf.get("hdr"))
+        try:
+            frames = rawdev.capture(self.cams[lens["path"]], EV_FILE, self.ev.get_value(), hdr=hdr)
+        except Exception as e:
+            log("raw capture failed:", e)
+            frames = []
+        GLib.idle_add(self._after_full)
+        if flash and self.conf["flash"] != "torch":
+            self.led(False)
+        if not frames:
+            GLib.idle_add(self.say, "12 MP capture failed")
+            return
+        GLib.timeout_add(800, lambda: (self.say("DEVELOPING…"), False)[1])
+        try:
+            rgb = rawdev.develop(frames)
+        except Exception as e:
+            log("develop failed:", e)
+            GLib.idle_add(self.say, "develop failed")
+            return
+        finally:
+            del frames
+        self._save(rgb, lens, held, theme)
+        GLib.idle_add(self.say, None)
 
     def _after_full(self):
         self.start_preview()

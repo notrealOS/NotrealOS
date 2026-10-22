@@ -1,0 +1,18 @@
+use_default_settings: true
+server:
+  secret_key: "CHANGE_ME"
+  limiter: false
+  bind_address: "0.0.0.0"
+search:
+  formats: [html, json]
+  suspended_times:            # default 3600 s: one rate-limit kept an engine out for an hour
+    SearxEngineTooManyRequestsException: 300
+    SearxEngineCaptchaException: 900
+    SearxEngineAccessDeniedException: 600
+engines:
+  - name: google
+    disabled: false
+  - name: bing
+    disabled: false
+  - name: yahoo
+    disabled: false

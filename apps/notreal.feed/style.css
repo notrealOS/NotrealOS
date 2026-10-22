@@ -22,6 +22,7 @@ headerbar { box-shadow: none; }
   border-radius: 6px;
   font-size: 11pt;
 }
+.app-title.long { letter-spacing: 2px; padding: 2px 8px; }
 .sheet-title { letter-spacing: 4px; color: alpha(var(--nr-accent), 0.85); }
 
 /* boxless buttons like the keys: lavender, glow only while pressed */
