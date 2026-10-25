@@ -1,0 +1,70 @@
+/* MICRO theme: micrographics / blueprint. Off-white paper, black ink, graphite hairlines,
+   olive-grey, one signal red-orange. Flat: no gradients, no glows, square corners
+   (forced by micro.override.css, which sits above the apps' own stylesheets).
+   The color NAMES come from the vapor theme, so in this theme they mean:
+   white/fg-bright/primary = strongest ink, accent = graphite, pink = dark hairline ink,
+   cyan/mint = olive, hot-pink/orange = signal, glow = none (paper). */
+:root {
+  --nr-wallpaper: micro;
+  --nr-corners: 0;
+  /* paper */
+  --nr-bg: #e8e7e2;
+  --nr-bg-deep: #dcdbd5;
+  --nr-surface: #f3f2ee;
+  /* ink */
+  --nr-fg: #1b1b19;
+  --nr-fg-bright: #0e0e0d;
+  --nr-white: #0e0e0d;
+  --nr-accent: #55554f;
+  --nr-accent-light: #6f6f68;
+  --nr-violet: #2c2c29;
+  --nr-glow: #e8e7e2;
+  --nr-primary: #0e0e0d;
+  --nr-pink: #3a3a36;
+  /* olive-grey (the OFFLINE / ECHO print) */
+  --nr-cyan: #8a8b6b;
+  --nr-mint: #6c6f52;
+  --nr-yellow: #b9b49b;
+  /* signal */
+  --nr-hot-pink: #e0441c;
+  --nr-orange: #e0441c;
+  --nr-blue: #2f45c8;
+  --nr-gradient: linear-gradient(90deg, var(--nr-fg-bright), var(--nr-fg-bright));
+
+  --nr-font: "JetBrains Mono", monospace;
+  --nr-font-code: "JetBrains Mono", monospace;
+  --nr-font-text: "Open Sans", sans-serif;
+
+  --accent-bg-color: var(--nr-fg-bright); --accent-fg-color: var(--nr-bg); --accent-color: var(--nr-fg-bright);
+  --window-bg-color: var(--nr-bg); --window-fg-color: var(--nr-fg);
+  --view-bg-color: var(--nr-bg); --view-fg-color: var(--nr-fg);
+  --headerbar-bg-color: var(--nr-bg); --headerbar-fg-color: var(--nr-fg);
+  --headerbar-backdrop-color: var(--nr-bg); --headerbar-shade-color: transparent;
+  --card-bg-color: var(--nr-surface); --card-fg-color: var(--nr-fg);
+  --popover-bg-color: var(--nr-surface); --popover-fg-color: var(--nr-fg);
+  --dialog-bg-color: var(--nr-bg); --dialog-fg-color: var(--nr-fg);
+  --sheet-bg-color: var(--nr-bg); --sheet-fg-color: var(--nr-fg);
+  --thumbnail-bg-color: var(--nr-bg-deep);
+  --destructive-bg-color: var(--nr-orange); --destructive-fg-color: var(--nr-surface); --destructive-color: var(--nr-orange);
+  --success-color: var(--nr-mint); --warning-color: var(--nr-orange);
+  --border-color: alpha(var(--nr-fg), 0.25);
+  --focus-ring-color: alpha(var(--nr-fg-bright), 0.6);
+}
+
+window, dialog, popover, label, button, entry, text, textview, row, calendar, spinbutton, toast {
+  font-family: var(--nr-font);
+}
+/* blueprint paper: faint 24 px grid */
+window.background {
+  background-color: var(--nr-bg);
+  background-image:
+    repeating-linear-gradient(0deg, alpha(var(--nr-fg), 0.045) 0px, alpha(var(--nr-fg), 0.045) 1px, transparent 1px, transparent 24px),
+    repeating-linear-gradient(90deg, alpha(var(--nr-fg), 0.045) 0px, alpha(var(--nr-fg), 0.045) 1px, transparent 1px, transparent 24px);
+}
+headerbar { box-shadow: none; border-bottom: 1px solid var(--nr-fg); }
+.app-title {
+  font-weight: bold; letter-spacing: 6px; font-size: 10pt; color: var(--nr-bg);
+  background: var(--nr-fg-bright); padding: 2px 12px; border-radius: 0;
+}
+.vapor-bar { border-bottom: 1px solid var(--nr-fg); }
+.sheet-title { letter-spacing: 4px; color: var(--nr-accent); }

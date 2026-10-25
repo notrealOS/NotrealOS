@@ -45,6 +45,23 @@ MAX = 2 * 1024 * 1024
 REPO_ONLY = re.compile(r"^(README\.md|get-[\w-]+\.sh)$")
 
 
+# apps that must also work on their own, outside the notrealOS phone: they carry the theme module
+BUNDLE_THEME = {"spin"}
+THEME_FILE = re.compile(r"^[a-z0-9_-]+(\.override)?\.css$")
+
+
+def bundle_theme(d):
+    """<app>/theme: notareal_theme.py, the GTK4 themes and the font downloader (no shell/Phosh parts)."""
+    t = os.path.join(d, "theme")
+    os.makedirs(os.path.join(t, "themes"), exist_ok=True)
+    shutil.copy2(os.path.join(HOME, "theme", "notareal_theme.py"), t)
+    shutil.copy2(os.path.join(REPO, "shell", "theme", "get-fonts.sh"), t)
+    for f in os.listdir(os.path.join(HOME, "theme", "themes")):
+        if THEME_FILE.match(f) and f != "gtk3-common.css":
+            shutil.copy2(os.path.join(HOME, "theme", "themes", f), os.path.join(t, "themes"))
+    return t
+
+
 def is_elf(p):
     """Compiled programs are built from their source, never committed."""
     try:
@@ -74,6 +91,10 @@ def stage(src, dst):
                     txt = fh.read()
                 with open(q, "w") as fh:
                     fh.write(txt.replace(HOME, "@HOME@"))
+    if src in BUNDLE_THEME:
+        t = bundle_theme(d)
+        for root, _dirs, files in os.walk(t):
+            copied.update(os.path.relpath(os.path.join(root, f), d) for f in files)
     # drop files that left the source, but keep what only lives in the repo (READMEs, downloaders)
     for root, dirs, files in os.walk(d):
         for f in files:

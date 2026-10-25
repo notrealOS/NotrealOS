@@ -5,6 +5,7 @@
 
 Themes live in ~/theme/themes/<name>.css (+ optional <name>.override.css); the active one is
 named in ~/theme/active. Switch with  ~/theme/nrtheme <name>  - every running app restyles live.
+Bundled in a single app (no ~/theme): themes/ next to this file, or $NR_THEME_DIR.
 Layers: theme (600) < app style.css (650) < theme override (700) < user gtk.css (800).
 
 Code-drawn colors:
@@ -16,7 +17,9 @@ Code-drawn colors:
 import os
 import re
 
-DIR = os.path.expanduser("~/theme")
+_HOME_DIR = os.path.expanduser("~/theme")
+DIR = os.environ.get("NR_THEME_DIR") or (
+    _HOME_DIR if os.path.isdir(os.path.join(_HOME_DIR, "themes")) else os.path.dirname(os.path.abspath(__file__)))
 THEMES = os.path.join(DIR, "themes")
 ACTIVE = os.path.join(DIR, "active")
 THEME_PRIORITY = 600   # Gtk.STYLE_PROVIDER_PRIORITY_APPLICATION
@@ -45,6 +48,26 @@ def active():
     except OSError:
         name = ""
     return name if os.path.exists(os.path.join(THEMES, name + ".css")) else "vapor"
+
+
+def names():
+    """Installed theme names (the GTK3 shell variants and overrides aren't themes of their own)."""
+    try:
+        return sorted(f[:-4] for f in os.listdir(THEMES) if re.fullmatch(r"[a-z0-9_-]+\.css", f) and f != "gtk3-common.css")
+    except OSError:
+        return []
+
+
+def set_active(name):
+    """Switch theme; running apps restyle live. The full phone setup also recolors icons + Phosh."""
+    nrtheme = os.path.join(DIR, "nrtheme")
+    if os.access(nrtheme, os.X_OK):
+        import subprocess
+        subprocess.Popen([nrtheme, name], stdout=subprocess.DEVNULL, start_new_session=True)
+        return
+    with open(ACTIVE + ".tmp", "w") as f:
+        f.write(name + "\n")
+    os.replace(ACTIVE + ".tmp", ACTIVE)
 
 
 def _read():

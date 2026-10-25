@@ -1,0 +1,67 @@
+/* NASA theme v4 (10-17): smooth whites with splashes of orange (user: v3 keycaps too cartoony).
+   Warm white surfaces, depth only from wide soft shadows - no outlines, bevels or gradients.
+   Orange only for the main action, selected things, the app title and small accents.
+   "white" = the strongest ink (charcoal), like micro/vaporlight. */
+:root {
+  --nr-wallpaper: nasa;        /* notarealShell draws the white slabs (phantomshell._nasa) */
+  --nr-corners: 1.4;
+  --nr-icon-outline: 0;        /* icons.py: app tiles without a frame stroke */
+  --nr-bg: #f2f0eb;            /* warm white */
+  --nr-bg-deep: #e8e5de;
+  --nr-surface: #fcfbf8;       /* raised white */
+  --nr-fg: #2a2a28;            /* charcoal */
+  --nr-fg-bright: #161615;
+  --nr-white: #161615;
+  --nr-accent: #9b988f;        /* soft grey: secondary text, lines */
+  --nr-accent-light: #6f6c66;
+  --nr-violet: #a5a29a;
+  --nr-glow: #ffffff;
+  --nr-primary: #ef6a1e;       /* orange */
+  --nr-cyan: #b9b5ac;          /* neutral (no second colour) */
+  --nr-pink: #dedad2;          /* faint dividers */
+  --nr-hot-pink: #e2482a;
+  --nr-mint: #8fa894;
+  --nr-yellow: #f3a54a;
+  --nr-orange: #ef6a1e;
+  --nr-blue: #6d7378;
+  --nr-screen: #1b1b1a;
+  --nr-phosphor: #f4f2ee;
+  --nr-gradient: linear-gradient(90deg, var(--nr-primary), var(--nr-primary));
+
+  /* --- fonts --- */
+  --nr-font: "Adwaita Sans", "Open Sans", sans-serif;      /* keycap legends */
+  --nr-font-code: "Space Mono", "JetBrains Mono", monospace; /* CRT readouts */
+  --nr-font-title: "Space Mono", monospace;
+  --nr-font-text: "Adwaita Sans", "Noto Sans CJK KR", sans-serif;
+
+  /* --- libadwaita follows the palette --- */
+  --accent-bg-color: var(--nr-primary); --accent-fg-color: var(--nr-surface); --accent-color: var(--nr-primary);
+  --window-bg-color: var(--nr-bg); --window-fg-color: var(--nr-fg);
+  --view-bg-color: var(--nr-bg); --view-fg-color: var(--nr-fg);
+  --headerbar-bg-color: var(--nr-bg); --headerbar-fg-color: var(--nr-fg);
+  --headerbar-backdrop-color: var(--nr-bg); --headerbar-shade-color: transparent;
+  --card-bg-color: alpha(var(--nr-accent), 0.07); --card-fg-color: var(--nr-fg);
+  --popover-bg-color: var(--nr-surface); --popover-fg-color: var(--nr-fg);
+  --dialog-bg-color: var(--nr-bg); --dialog-fg-color: var(--nr-fg);
+  --sheet-bg-color: var(--nr-bg); --sheet-fg-color: var(--nr-fg);
+  --thumbnail-bg-color: var(--nr-surface);
+  --destructive-bg-color: var(--nr-hot-pink); --destructive-fg-color: var(--nr-surface); --destructive-color: var(--nr-hot-pink);
+  --success-color: var(--nr-mint); --warning-color: var(--nr-yellow);
+}
+
+/* --- shared base look --- */
+window, dialog, popover, label, button, entry, text, textview, row, calendar, spinbutton, toast {
+  font-family: var(--nr-font);
+}
+window.background {
+  background-color: var(--nr-bg);
+  background-image: none;
+}
+headerbar { box-shadow: none; }
+/* app name: orange, spaced, no plate */
+.app-title {
+  font-family: var(--nr-font); font-weight: 800; letter-spacing: 4px; font-size: 9pt;
+  color: var(--nr-primary); background: none; padding: 2px 4px; border-radius: 0; box-shadow: none;
+}
+.vapor-bar { border-bottom: 1px solid alpha(var(--nr-pink), 0.35); }
+.sheet-title { letter-spacing: 4px; color: alpha(var(--nr-accent), 0.85); }

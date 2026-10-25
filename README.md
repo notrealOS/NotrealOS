@@ -36,7 +36,7 @@ All apps are Python + GTK4/libadwaita, sized for a phone, with the main controls
 | [notreal.link](apps/notreal.link) | Light web viewer for links opened from chat and mail |
 | [notreal.share](apps/notreal.share) | Send files to a chat or a new mail |
 | [notreal.sound](apps/notreal.sound) | Separate media and notification volume, ring/vibrate/silent, DAC or speaker output |
-| [notreal.player](apps/notreal.player) | Navidrome music client with a spinning vinyl (or a cassette), animated covers, bit-perfect USB DAC output, offline songs |
+| [notreal.player](apps/notreal.player) | Navidrome music client with a spinning vinyl (or a cassette), animated covers, bit-perfect USB DAC output, offline songs. **Installs on any Linux on its own** |
 | [notreal.maps](apps/notreal.maps) | Google maps, places and routes with GPS and offline voice navigation |
 | [notreal.tube](apps/notreal.tube) | YouTube, TikTok, Instagram and Vimeo in one feed and search, no accounts, streamed by the PC (not affiliated with any of them) |
 | [notreal.weather](apps/notreal.weather) | Open-Meteo forecasts, rain radar, air quality and pollen, saved places and GPS |

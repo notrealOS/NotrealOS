@@ -1,0 +1,30 @@
+/* ALIEN v2 overrides (10-17): above every app's style.css. A real CRT: square boxes drawn in
+   glowing phosphor, text and icons that bloom, scanlines running behind everything. */
+.app-title, button, entry, popover > contents, .card, row, toast, .chip, list, textview, .retro, .ghost, .titlebar,
+.keycap, button.app-tile, button.dock-tile, button.chip, .search-row, .suggestions, menubutton > button {
+  border-radius: 0;
+}
+/* no drop shadows; outlines glow instead */
+button, .card, .retro, .search-row, .suggestions, button.fab, button.chip, .cover-big { box-shadow: none; }
+.retro, .card, .search-row, .suggestions {
+  border: 1px solid alpha(var(--nr-fg), 0.85);
+  box-shadow: 0 0 6px alpha(var(--nr-fg), 0.35), inset 0 0 8px alpha(var(--nr-fg), 0.10);
+}
+.titlebar { background: var(--nr-fg-bright); box-shadow: 0 0 10px alpha(var(--nr-fg), 0.5); }
+.titlebar .title { color: var(--nr-bg); letter-spacing: 3px; }
+/* panels are see-through so the scanlines run behind the text, but dark enough to read */
+.retro, .allapps, .rampage, .search-row, .suggestions { background: alpha(var(--nr-bg-deep), 0.72); }
+list, listview, gridview, columnview, scrolledwindow, viewport, .navigation-view, toolbarview { background: transparent; }
+entry, entry:focus-within { outline-color: alpha(var(--nr-fg-bright), 0.6); }
+entry.web, entry.web:focus-within, entry.search { border: 1px solid var(--nr-fg-bright); }
+/* phosphor bloom: a tight core + a wide soft halo on every bit of text, icons glow too */
+label, text, entry, textview text {
+  text-shadow: 0 0 2px alpha(var(--nr-fg-bright), 0.75), 0 0 8px alpha(var(--nr-fg), 0.45);
+}
+image, button > image { -gtk-icon-shadow: 0 0 3px alpha(var(--nr-fg-bright), 0.7), 0 0 8px alpha(var(--nr-fg), 0.35); }
+/* inverse (light) blocks keep crisp dark text, but the block itself glows */
+.app-title, .titlebar .title { text-shadow: none; }
+.app-title { box-shadow: 0 0 10px alpha(var(--nr-fg), 0.55); }
+button:checked, button.suggested-action, togglebutton:checked { box-shadow: 0 0 10px alpha(var(--nr-fg), 0.5); }
+button:checked label, button.suggested-action label, togglebutton:checked label { text-shadow: none; }
+.cover, .cover-small, .cover-big, picture, .thumb { border-radius: 0; }

@@ -13,18 +13,31 @@ A Navidrome music client with a spinning vinyl or a cassette (Settings › Look,
 - 1–5 star ratings, smart mixes (similar songs), crossfade, ReplayGain, equaliser
 - MPRIS media controls (lock screen, overview widget)
 
-## Run
+## Install (any Linux)
+
+The player works on its own: no notrealOS phone needed, just a [Navidrome](https://www.navidrome.org)
+server with your music. It runs on Linux phones (postmarketOS, Mobian, ...) and desktops alike, and
+carries all six themes with it (`theme/`).
 
 ```sh
-cp -r apps/notreal.player ~/spin    # the code expects to live here
-python3 ~/spin/spin.py
+git clone https://github.com/notrealOS/NotrealOS.git
+cd NotrealOS/apps/notreal.player
+./install.sh                # app menu entry, icon, `notreal-player` command, theme fonts
 ```
 
-Needs Python 3, PyGObject, GTK 4, libadwaita and the [theme](../../shell/theme) module on `PYTHONPATH` (or `notareal_theme.py` symlinked into `~/.local/lib/python3.*/site-packages/`).
+No root needed; everything goes to `~/.local`. If GTK 4, libadwaita (1.6+) or GStreamer is
+missing, the installer prints the packages for Alpine/postmarketOS, Debian/Ubuntu, Fedora and Arch.
+`./install.sh --no-fonts` skips the font download, `./install.sh --uninstall` removes it
+(settings and offline songs stay in `~/.config/spin` and `~/.local/share/spin`).
+
+Open it, sign in with your Navidrome address, and pick a theme in **Settings › Look**.
+
+On the notrealOS phone itself the app lives in `~/spin` and uses the phone-wide theme instead,
+plus the DAP mode button.
 
 ## Needs
 
-a [Navidrome](https://www.navidrome.org) server (see [pc/music](../../pc/music)), GStreamer
+a Navidrome server (see [pc/music](../../pc/music)); optional: the animated-cover server in `server/`, ImageMagick for smaller thumbnails
 
 ## Configure
 

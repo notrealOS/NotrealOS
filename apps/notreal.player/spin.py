@@ -15,6 +15,8 @@ gi.require_version("Adw", "1")
 gi.require_version("Gsk", "4.0")
 gi.require_version("Graphene", "1.0")
 from gi.repository import Adw, Gdk, Gio, GLib, GObject, Graphene, Gsk, Gtk, Pango
+# the shared theme module; a standalone install carries its own copy in ./theme
+sys.path.append(os.path.join(os.path.dirname(os.path.abspath(__file__)), "theme"))
 import notareal_theme  # noqa: E402  ~/theme/theme.css
 
 # themes other than vapor/micro (nasa, alien, ...): the vapor drawing with its hexes swapped for palette names
@@ -1654,6 +1656,13 @@ class SettingsDialog(Adw.PreferencesDialog):
                 vin.set_spinning(player.playing)
         sp.connect("notify::selected", speed)
         g.add(sp)
+        themes = notareal_theme.names()
+        if themes:
+            th = Adw.ComboRow(title="Theme", model=Gtk.StringList.new(themes))
+            if notareal_theme.active() in themes:
+                th.set_selected(themes.index(notareal_theme.active()))
+            th.connect("notify::selected", lambda r, _p: notareal_theme.set_active(themes[r.get_selected()]))
+            g.add(th)
         styles = [("vinyl", "Vinyl record"), ("cassette", "Vaporwave cassette")]
         st = Adw.ComboRow(title="Now playing style", subtitle="Long-press the record or tape to flip",
                           model=Gtk.StringList.new([n for _, n in styles]))
@@ -1663,7 +1672,8 @@ class SettingsDialog(Adw.PreferencesDialog):
         port = Adw.SwitchRow(title="Keep portrait", subtitle="Don't auto-rotate while this app is open",
                              active=portrait_locked())
         port.connect("notify::active", lambda r, _p: set_portrait_locked(r.get_active()))
-        g.add(port)
+        if os.path.isdir(os.path.expanduser("~/rotated")):   # the phone's auto-rotate daemon reads this
+            g.add(port)
         lk.add(g)
         acc = Adw.PreferencesGroup(title="Account")
         acc.add(Adw.ActionRow(title=GLib.markup_escape_text(s["user"] or "-"),
@@ -1739,6 +1749,7 @@ class Window(Adw.ApplicationWindow):
     # DAP mode (~/dap/nrdap, 10-21): music only, radios + background off. The flag file is the
     # truth (the shell's widget can toggle it too), so the button just mirrors it.
     DAP_FLAG = os.path.expanduser("~/.local/state/nrdap/on")
+    DAP_CMD = os.path.expanduser("~/dap/nrdap")    # only on the full notrealOS phone
 
     def _dap_button(self):
         self.dap_btn = Gtk.Button(label="DAP", css_classes=["flat", "dap-btn"],
@@ -1761,7 +1772,7 @@ class Window(Adw.ApplicationWindow):
     def _dap_toggle(self):
         on = os.path.exists(self.DAP_FLAG)
         self.toast("Leaving DAP mode…" if on else "DAP mode: radios off, background stopped")
-        subprocess.Popen([os.path.expanduser("~/dap/nrdap"), "off" if on else "on"], start_new_session=True)
+        subprocess.Popen([self.DAP_CMD, "off" if on else "on"], start_new_session=True)
 
     def build(self):
         self.nav = Adw.NavigationView()
@@ -1769,7 +1780,8 @@ class Window(Adw.ApplicationWindow):
         hb = Adw.HeaderBar(css_classes=["vapor-bar"])
         hb.set_title_widget(label("NOTREAL.PLAYER", "app-title", xalign=0.5, ellipsize=False))
         hb.pack_start(icon_button("system-search-symbolic", lambda: self.nav.push(SearchPage(self))))
-        hb.pack_start(self._dap_button())
+        if os.access(self.DAP_CMD, os.X_OK):
+            hb.pack_start(self._dap_button())
         hb.pack_end(icon_button("emblem-system-symbolic", self.show_settings))
         root.add_top_bar(hb)
         self.stack = Adw.ViewStack()
