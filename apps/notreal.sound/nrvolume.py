@@ -4,6 +4,7 @@
 MODE = feedbackd's profile: RING = full, VIBRATE = quiet (buzz, no sound), SILENT = silent
 (LED only). Same setting as the bell tile in the Phosh shade; alarms still ring (alarmd's own paplay).
 
+OUTPUT (10-24) = DAC or SPEAKER, nroutput.py (DAC falls back to the speaker while unplugged).
 MEDIA = the default sink's volume (same as Phosh's slider and the volume keys).
 NOTIFICATIONS = ~/.config/nrvolume.json "notify", applied by nrvolumed.py.
 Left-handed: the mute / test buttons sit left of the sliders.
@@ -21,6 +22,7 @@ from gi.repository import Adw, Gio, GLib, Gtk  # noqa: E402
 
 import pulsectl  # noqa: E402
 import notareal_theme  # noqa: E402
+import nroutput  # noqa: E402
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 APP_ID = "dev.notareal.Sound"
@@ -68,6 +70,7 @@ class Window(Adw.ApplicationWindow):
         box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=6, margin_top=18,
                       margin_bottom=18, margin_start=16, margin_end=16)
         self.mode_row(box)
+        self.output_row(box)
         self.media_btn, self.media = self.row(box, "MEDIA", "music, videos, voice", "audio-volume-high-symbolic")
         self.note_btn, self.note = self.row(box, "NOTIFICATIONS", "messages, mail, ringtone",
                                             "preferences-system-notifications-symbolic")
@@ -149,12 +152,60 @@ class Window(Adw.ApplicationWindow):
             subprocess.Popen(["fbcli", "-E", "message-new-instant"],
                              stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
 
+    # --- output = DAC / SPEAKER ---------------------------------------------------------
+    def output_row(self, box):
+        head = Gtk.Box(margin_top=14)
+        lb = Gtk.Label(label="OUTPUT", xalign=0, hexpand=True)
+        lb.add_css_class("sheet-title")
+        head.append(lb)
+        self.out_note = Gtk.Label(xalign=1)
+        self.out_note.add_css_class("dim-label")
+        head.append(self.out_note)
+        box.append(head)
+        line = Gtk.Box(homogeneous=True, margin_top=4)
+        line.add_css_class("linked")
+        self.out_btns = {}
+        group = None
+        for pref, label, icon in (("dac", "DAC", "audio-headphones-symbolic"),
+                                  ("speaker", "SPEAKER", "audio-speakers-symbolic")):
+            b = Gtk.ToggleButton(group=group)
+            group = group or b
+            c = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=2, margin_top=6, margin_bottom=6)
+            c.append(Gtk.Image(icon_name=icon))
+            c.append(Gtk.Label(label=label))
+            b.set_child(c)
+            b.connect("toggled", self.output_picked, pref)
+            self.out_btns[pref] = b
+            line.append(b)
+        box.append(line)
+
+    def output_synced(self):
+        pref = nroutput.prefer()
+        b = self.out_btns[pref]
+        if not b.get_active():
+            self.busy = True
+            b.set_active(True)
+            self.busy = False
+        dac = any(nroutput.is_dac(x.name) for x in self.pulse.sink_list())
+        self.out_note.set_label("" if dac else "no DAC plugged in")
+
+    def output_picked(self, b, pref):
+        if self.busy or not b.get_active() or nroutput.prefer() == pref:
+            return
+        nroutput.set_prefer(pref)
+        try:
+            nroutput.apply(self.pulse)
+        except pulsectl.PulseError:
+            pass
+        self.sync()
+
     # --- media = default sink -----------------------------------------------------------
     def sink(self):
         return self.pulse.get_sink_by_name(self.pulse.server_info().default_sink_name)
 
     def sync(self):
         try:
+            self.output_synced()
             s = self.sink()
             # during a notification nrvolumed raises the sink; show the real media volume
             st = os.path.join(os.environ.get("XDG_RUNTIME_DIR", "/tmp"), "nrvolumed.state")

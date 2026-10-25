@@ -206,6 +206,8 @@ def texture(path):
 
 
 KARERE = "dev.notareal.WaCall.desktop"   # WhatsApp Web in a lean Chromium (~/wacall); was Karere
+WAGW = os.path.expanduser("~/wagw/wacall")  # 10-24: WhatsApp calls through the PC gateway (audio only here)
+WAGW_LINKED = os.path.join(os.environ.get("XDG_RUNTIME_DIR", "/tmp"), "wacall-gw-linked")
 NEWCHAT_CHOICES = os.path.expanduser("~/.local/share/newchat/choices.json")   # name -> number (New Chat app)
 CALL_NOTICE = "Incoming call"   # the WhatsApp bridge's notice when someone calls
 
@@ -868,8 +870,12 @@ class ChatPage(Adw.NavigationPage):
         num = self.phone_number()
         net = self.chat["net"]
         if net == "wa":
-            item("WhatsApp call", "opens WhatsApp Calls — tap %s there, then call" % (self.chat["name"] or ""),
-                 self.whatsapp_call)
+            if os.path.exists(WAGW_LINKED):
+                item("WhatsApp call", "voice call through the PC", self.whatsapp_call)
+                item("WhatsApp Web", "opens WhatsApp Calls in the browser (~20 s)", self.whatsapp_web)
+            else:
+                item("WhatsApp call", "opens WhatsApp Calls — tap %s there, then call" % (self.chat["name"] or ""),
+                     self.whatsapp_web)
         if net == "gv":
             item("Google Voice call", "opens Voice", lambda: launch_desktop("dev.notareal.Voice.desktop"))
         if num:
@@ -881,6 +887,13 @@ class ChatPage(Adw.NavigationPage):
         pop.popup()
 
     def whatsapp_call(self):
+        """Through the PC gateway: by number when we know it, else WhatsApp's own search by name."""
+        name = self.chat["name"] or ""
+        num = None if self.is_sms else self.phone_number()
+        args = [WAGW, "--name", name] + (["--call", num] if num else ["--call-name", name])
+        subprocess.Popen(args, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, start_new_session=True)
+
+    def whatsapp_web(self):
         if launch_desktop(KARERE):
             self.toast("WhatsApp is starting (~12 s) — open %s there and tap call" % (self.chat["name"] or "the chat"))
         else:
@@ -2447,6 +2460,8 @@ class App(Adw.Application):
 
     def notify_call(self, cid, c):
         """WhatsApp rings: the bridge can't take calls, so this hands off to WhatsApp Web (WhatsApp Calls)."""
+        if os.path.exists(WAGW_LINKED):
+            return  # the PC gateway rings this phone itself (wacall --service)
         n = Gio.Notification.new("📞 WhatsApp call · %s" % c["name"])
         n.set_body("Tap to answer in WhatsApp Calls (~12 s to open)")
         n.set_priority(Gio.NotificationPriority.URGENT)

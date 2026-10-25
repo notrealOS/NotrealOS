@@ -12,6 +12,11 @@ import time
 import uuid
 
 import requests
+import urllib3.util.connection
+
+# 10-25: IPv6 over mobile data is blackholed (Tele2) and urllib3 has no happy eyeballs: it
+# tried 16 Google v6 addresses x 20 s before IPv4, so searches hung for minutes. IPv4 only.
+urllib3.util.connection.HAS_IPV6 = False
 
 import gi
 gi.require_version("Secret", "1")

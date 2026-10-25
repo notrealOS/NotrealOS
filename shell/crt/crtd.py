@@ -59,6 +59,44 @@ def log(*a):
 PRESSLOG = os.path.expanduser("~/crashlog/power.log")
 
 
+EVIOCGKEY = 0x80604518   # EVIOCGKEY(96): pressed-key bitmap, readable even while circled grabs the device
+KEY_VOLUMEDOWN = 114
+SHOT = os.path.join(os.path.dirname(os.path.abspath(__file__)), "nrshot")
+SHOT_STAMP = os.path.join(os.environ.get("XDG_RUNTIME_DIR", "/run/user/%d" % os.getuid()), "nrshot.stamp")
+
+
+def voldown_held():
+    """Is volume-down (pmic_resin, grabbed by circled) down right now?"""
+    for d in os.listdir("/sys/class/input"):
+        try:
+            with open("/sys/class/input/%s/device/name" % d) as f:
+                if not d.startswith("event") or f.read().strip() != "pmic_resin":
+                    continue
+            fd = os.open("/dev/input/" + d, os.O_RDONLY | os.O_NONBLOCK)
+            try:
+                bits = fcntl.ioctl(fd, EVIOCGKEY, bytes(96))
+            finally:
+                os.close(fd)
+            return bool(bits[KEY_VOLUMEDOWN // 8] & (1 << (KEY_VOLUMEDOWN % 8)))
+        except OSError:
+            continue
+    return False
+
+
+def mark_shot():
+    """Touch the stamp before nrshot starts, so the other daemon sees it on a quick release."""
+    with open(SHOT_STAMP, "a"):
+        os.utime(SHOT_STAMP)
+
+
+def shot_since(t):
+    """Did nrshot run (from us or circled) since wall time t?"""
+    try:
+        return os.stat(SHOT_STAMP).st_mtime >= int(t)
+    except OSError:
+        return False
+
+
 def presslog(msg):
     """10-17: every physical power-key press, kept across reboots (phantom-press hunt)."""
     try:
@@ -378,22 +416,40 @@ class Crtd:
         self.emit(0)
 
     def on_key_fd(self, fd, cond):
+        # 10-24: an exception here makes PyGObject drop this fd watch while the grab stays,
+        # so the power key went dead (missing nrshot at 19:02). Never let one escape.
+        try:
+            self.read_keys(fd)
+        except Exception as e:
+            log("key handler error:", repr(e))
+        return GLib.SOURCE_CONTINUE
+
+    def read_keys(self, fd):
         try:
             data = os.read(fd, EVENT.size * 32)
         except BlockingIOError:
-            return GLib.SOURCE_CONTINUE
+            return
         for i in range(0, len(data) - EVENT.size + 1, EVENT.size):
             _, _, typ, code, val = EVENT.unpack_from(data, i)
             if typ == EV_KEY and code == KEY_POWER:
                 if val == 1:
                     self.press_t = time.monotonic()
+                    self.press_wall = time.time()
                     presslog("down")
+                    if voldown_held():   # volume-down first, then power: screenshot
+                        presslog("screenshot")
+                        self.swallow = True
+                        mark_shot()
+                        try:
+                            subprocess.Popen([SHOT])
+                        except OSError as e:
+                            log("nrshot failed:", repr(e))
+                        continue
                     self.press()
                 elif val == 0:
                     presslog("up after %d ms%s" % ((time.monotonic() - getattr(self, "press_t", time.monotonic())) * 1000,
                                                    " (LONG = power menu)" if self.long_fwd else ""))
                     self.release()
-        return GLib.SOURCE_CONTINUE
 
     def press(self):
         now = time.monotonic()
@@ -409,6 +465,8 @@ class Crtd:
 
     def long_press(self):
         self.long_timer = None
+        if self.held and (voldown_held() or shot_since(self.press_wall)):
+            return GLib.SOURCE_REMOVE   # power + volume-down screenshot: no power menu
         if self.held:
             self.long_fwd = True
             self.emit(1)
@@ -430,6 +488,8 @@ class Crtd:
         if self.long_fwd:
             self.long_fwd = False
             self.emit(0)
+            return
+        if shot_since(getattr(self, "press_wall", time.time())) or voldown_held():   # it was a screenshot combo
             return
         self.last_release = time.monotonic()
         if self.state == "awake" and self.screen_on():

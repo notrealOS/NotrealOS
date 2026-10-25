@@ -5,7 +5,7 @@ Replaces Stevia as sm.puri.OSK0. Left-handed: backspace sits left of Z, the best
 suggestion is the leftmost slot. Resize mode (⤢ in the suggestion bar) moves/scales
 the keyboard; settings live in ~/.config/swipekbd/settings.json per orientation.
 """
-import base64, json, math, os, sys, time, traceback
+import base64, json, math, os, re, sys, time, traceback
 from ctypes import CDLL
 CDLL("libgtk4-layer-shell.so.0")  # must load before libwayland-client
 
@@ -46,7 +46,11 @@ FG = (0.914, 0.902, 0.984)
 LAV = (0.773, 0.627, 1.0)
 PINK = (0.969, 0.631, 0.910)
 CYAN = (0.435, 0.839, 0.949)
+MIC_IDLE = (1.0, 1.0, 1.0)        # the voice-typing dot: white ...
+MIC_REC = (0.937, 0.231, 0.267)   # ... red while recording
 MINT = (0.494, 0.941, 0.824)
+# 10-24: a lone "i" (or i'm / i'll / i'd / i've) becomes "I" when the word ends
+I_WORD = re.compile(r"(?:^|[\s(\"¿¡])(i(?:['’](?:m|ll|d|ve))?)$")
 ADD_MARK = "＋"   # suggestion prefix: tap to add the typed word to the dictionary
 SURFACE = (0.12, 0.15, 0.30)
 SHADE = (0.07, 0.08, 0.16)
@@ -89,6 +93,17 @@ SYM_LABEL = {"Tab": "tab", "Escape": "esc", "Left": "◀", "Up": "▲", "Down": 
              "Delete": "del", "Insert": "ins", "BackSpace": "⌫", "Return": "⏎"}
 TERM_DEFAULT = ["Tab", "Escape", "<ctrl>", "<alt>", "Left", "Up", "Down", "Right", "<ctrl>r", "Home", "End",
                 "<ctrl>w", "<alt>b", "<alt>f", "<ctrl>v", "<ctrl>c", "<ctrl><shift>v", "<ctrl><shift>c", "Menu"]
+
+
+FIELD_FILE = os.path.join(os.environ.get("XDG_RUNTIME_DIR", "/tmp"), "swipekbd-field")
+
+
+def save_field(hint, purpose):
+    try:
+        with open(FIELD_FILE, "w") as f:
+            f.write(f"{hint} {purpose}")
+    except OSError:
+        pass
 
 
 def char_key(ch):
@@ -141,20 +156,45 @@ def K(label, x, w=1.0, act=None, kind="char"):
 
 
 def bottom_row(left):
-    # 😊: tap = emoji, hold = menu with emoji + the languages
-    return [K(left[0], 0, 1.5, left[1], "sys"), K("🎤", 1.5, 1, "mic", "sys"), K("😊", 2.5, 1, "emoji", "sys"),
+    # 😊: tap = emoji, hold = menu with emoji + the languages; mic = a plain dot (10-24: no emoji icon)
+    return [K(left[0], 0, 1.5, left[1], "sys"), K("", 1.5, 1, "mic", "sys"), K("😊", 2.5, 1, "emoji", "sys"),
             K("", 3.5, 3, " ", "space"), K(",", 6.5), K(".", 7.5), K("⏎", 8.5, 1.5, "enter", "enter")]
 
 
-# emoji pages: (tab icon, emoji); page 0 is filled from the recents in settings.json
+# emoji pages: (tab icon, emoji); page 0 is filled from the recents in settings.json.
+# 10-24: several screens per tab - tapping the open tab again flips to its next screen (like ^_^)
 EMOJI_PAGES = [
     ("🕘", ""),
-    ("😀", "😀 😂 🤣 😊 😍 🥰 😘 😉 😎 🤩 🥳 😏 😅 😆 😇 🙂 🙃 😋 😜 🤪 🤗 🤔 🤭 🤫 😴 🥺 😢 😭"),
-    ("😡", "😤 😡 🤬 😱 😨 😰 😳 🤯 😬 🙄 😒 😔 😞 😩 🤤 🤢 🤮 🤧 😷 🤒 🥵 🥶 😵 🫠 💀 👻 🤡 💩"),
-    ("👍", "👍 👎 👌 ✌️ 🤞 🤟 🤘 👏 🙌 🙏 💪 👋 🤙 👉 👈 👆 👇 ✋ 🫶 🤝 ✊ 👊 🫡 🤷 🤦 🙋 👀 🧠"),
-    ("❤️", "❤️ 🧡 💛 💚 💙 💜 🖤 🤍 💔 💕 💖 💯 🔥 ✨ ⭐ 🌟 💥 💫 🎉 🎊 🎁 🎶 ✅ ❌ ⚡ 💤 ❓ ❗"),
-    ("🐶", "🐶 🐱 🐭 🐰 🦊 🐻 🐼 🐨 🐯 🦁 🐮 🐷 🐸 🐵 🐔 🦄 🐝 🦋 🐢 🐍 🐙 🐬 🐳 🌸 🌹 🌻 🌴 🌈"),
-    ("🍕", "🍕 🍔 🍟 🌮 🍣 🍜 🍝 🍰 🎂 🍩 🍪 🍫 🍿 🍎 🍌 🍓 🍉 🥑 ☕ 🍺 🍷 🥂 🍾 ⚽ 🎮 🚗 ✈️ 🏠"),
+    ("😀", "😀 😃 😄 😁 😆 😅 😂 🤣 🥲 😊 😇 🙂 🙃 😉 😌 😍 🥰 😘 😗 😙 😚 😋 😛 😝 😜 🤪 🤨 🧐 "
+          "🤓 😎 🥸 🤩 🥳 😏 😒 😞 😔 😟 😕 🙁 ☹️ 😣 😖 😫 😩 🥺 😢 😭 😤 😠 😡 🤬 🤯 😳 🥵 🥶 "
+          "😱 😨 😰 😥 😓 🫣 🤗 🫡 🤔 🫢 🤭 🤫 🤥 😶 🫥 😐 😑 😬 🫨 🙄 😯 😦 😧 😮 😲 🥱 😴 🤤 "
+          "😪 😵 😵‍💫 🤐 🥴 🤢 🤮 🤧 😷 🤒 🤕 🤑 🤠 😈 👿 👹 👺 🤡 💩 👻 💀 👽 🤖 🎃 😺 😸 😹 😻 "
+          "😼 😽 🙀 😿 😾 🫠"),
+    ("👍", "👍 👎 👌 🤌 🤏 ✌️ 🤞 🫰 🤟 🤘 🤙 👈 👉 👆 👇 ☝️ 🫵 👋 🤚 🖐️ ✋ 🖖 🫱 🫲 👏 🙌 🫶 👐 "
+          "🤲 🤝 🙏 ✍️ 💅 🤳 💪 🦾 🧠 👀 👁️ 👅 👄 💋 👶 🧒 👦 👧 🧑 👱 👨 👩 🧔 🧓 👴 👵 🙋 🙆 "
+          "🙅 🤷 🤦 🙇 💁 🙎 🙍 🧏 💆 💇 🚶 🏃 💃 🕺 👯 🧘 🛀 👫 👭 👬 💏 💑 👪 🤰 🤱 👼 🎅 🤶 "
+          "🦸 🦹 🧙 🧚 🧛 🧜 🧝 🧞 🧟 🥷 👮 👷 💂 🕵️ 👩‍⚕️ 👨‍🍳 👩‍💻 👨‍🎤 👩‍🎨 👨‍🚀 👰 🤵 🫅 👸 🤴"),
+    ("❤️", "❤️ 🧡 💛 💚 💙 🩵 💜 🤎 🖤 🩶 🤍 🩷 💔 ❤️‍🔥 ❤️‍🩹 💕 💞 💓 💗 💖 💘 💝 💟 ❣️ 💯 🔥 ✨ ⭐ "
+          "🌟 💫 💥 💢 💦 💨 💤 💬 💭 🗯️ ✅ ☑️ ✔️ ❌ ❎ ➕ ➖ ✖️ ➗ ♾️ ‼️ ⁉️ ❓ ❔ ❗ ❕ ⚠️ 🚫 ⛔ "
+          "🔞 ♻️ 🆗 🆕 🆒 🆓 🆙 🔝 🔜 🔙 ▶️ ⏸️ ⏹️ ⏺️ ⏭️ ⏮️ 🔀 🔁 🔂 🎵 🎶 🔔 🔕 📣 📢 🔇 🔊 ⚡ "
+          "☀️ 🌙 ☁️ 🌧️ ⛈️ ❄️ ☃️ 🌊 🎉 🎊 🎈 🎁 🏆 🥇 🥈 🥉 🏅 🎖️ ♠️ ♥️ ♦️ ♣️ 🏳️ 🏴 🏁 🚩 🏳️‍🌈 🇸🇪 "
+          "🇨🇷 🇮🇹 🇵🇪 🇺🇸 🇬🇧 🇪🇸 🇫🇷 🇩🇪 🇳🇴 🇩🇰 🇫🇮 🇲🇽 🇦🇷 🇨🇴 🇧🇷 🇯🇵 🇰🇷 🇨🇳 🇮🇳 🇨🇦 🇺🇦 🇪🇺"),
+    ("🐶", "🐶 🐱 🐭 🐹 🐰 🦊 🐻 🐼 🐻‍❄️ 🐨 🐯 🦁 🐮 🐷 🐸 🐵 🙈 🙉 🙊 🐔 🐧 🐦 🐤 🦆 🦅 🦉 🦇 🐺 "
+          "🐗 🐴 🦄 🐝 🪱 🐛 🦋 🐌 🐞 🐜 🪰 🕷️ 🐢 🐍 🦎 🦖 🦕 🐙 🦑 🦐 🦞 🦀 🐡 🐠 🐟 🐬 🐳 🐋 "
+          "🦈 🦭 🐊 🐅 🐆 🦓 🦍 🐘 🦛 🦏 🐪 🦒 🦘 🐃 🐂 🐄 🐎 🐖 🐏 🐑 🦙 🐐 🦌 🐕 🐩 🐈 🐈‍⬛ 🐓 "
+          "🦃 🦚 🦜 🦢 🦩 🕊️ 🐇 🦝 🦨 🦡 🦫 🦦 🦥 🐁 🐀 🐿️ 🦔 🌵 🎄 🌲 🌳 🌴 🪵 🌱 🌿 ☘️ 🍀 🪴 "
+          "🍃 🍂 🍁 🍄 🐚 🪨 🌾 💐 🌷 🌹 🥀 🌺 🌸 🌼 🌻 🌞 🌝 🌛 🌚 🌍 🪐 🌈"),
+    ("🍕", "🍏 🍎 🍐 🍊 🍋 🍌 🍉 🍇 🍓 🫐 🍈 🍒 🍑 🥭 🍍 🥥 🥝 🍅 🍆 🥑 🥦 🥬 🥒 🌶️ 🫑 🌽 🥕 🧄 "
+          "🧅 🥔 🍠 🥐 🥯 🍞 🥖 🥨 🧀 🥚 🍳 🧈 🥞 🧇 🥓 🥩 🍗 🍖 🌭 🍔 🍟 🍕 🫓 🥪 🥙 🧆 🌮 🌯 "
+          "🫔 🥗 🥘 🫕 🍝 🍜 🍲 🍛 🍣 🍱 🥟 🦪 🍤 🍙 🍚 🍘 🍥 🥠 🥮 🍢 🍡 🍧 🍨 🍦 🥧 🧁 🍰 🎂 "
+          "🍮 🍭 🍬 🍫 🍿 🍩 🍪 🌰 🥜 🍯 🥛 🍼 🫖 ☕ 🍵 🧃 🥤 🧋 🍶 🍺 🍻 🥂 🍷 🥃 🍸 🍹 🧉 🍾 "
+          "🧊 🥄 🍴 🍽️"),
+    ("⚽", "⚽ 🏀 🏈 ⚾ 🥎 🎾 🏐 🏉 🥏 🎱 🏓 🏸 🏒 🥊 🥋 ⛳ 🎣 🤿 🎽 🛹 ⛸️ 🎿 🏂 🏋️ 🤸 🚴 🏊 🧗 "
+          "🏄 🎮 🕹️ 🎲 ♟️ 🎯 🎳 🎨 🎬 🎤 🎧 🎼 🎹 🥁 🎷 🎺 🎸 🎻 🚗 🚕 🚙 🚌 🏎️ 🚓 🚑 🚒 🚚 🚜 "
+          "🛵 🏍️ 🚲 🛴 🚂 🚆 🚇 🚊 ✈️ 🛫 🛬 🚀 🛸 🚁 ⛵ 🚤 🛳️ ⚓ ⛽ 🚦 🗺️ 🗽 🗼 🏰 🏟️ 🎡 🎢 🏖️ "
+          "🏝️ ⛰️ 🏔️ 🏕️ 🏠 🏡 🏢 🏥 🏦 🏨 🏫 ⛪ 🕌 📱 💻 ⌨️ 🖥️ 🖨️ 🖱️ 📷 📸 📹 🎥 📺 📻 ⏰ ⌛ 💡 "
+          "🔦 🕯️ 💸 💵 💶 💳 💎 🔧 🔨 🛠️ 🔩 ⚙️ 🧲 💣 🔪 🛡️ 💊 💉 🩹 🧬 🔬 🔭 🧹 🧺 🧻 🛁 🔑 🗝️ "
+          "🚪 🛏️ 🛋️ 🎀 📦 ✉️ 📩 📝 📅 📌 📎 ✂️ 🔒 🔓 📚 📖 🔍"),
 ]
 EMOJI_PER_PAGE = 28
 KAO_TAB = len(EMOJI_PAGES)  # the last tab: kaomoji, tapping it again flips to the next set
@@ -193,9 +233,11 @@ def clip_rows(clips):
                     K("⏎", 8.5, 1.5, "enter", "enter")]]
 
 
-def emoji_tabs(kao_set=0):
+def emoji_tabs(kao_set=0, active=-1, hint=""):
     n = len(EMOJI_PAGES) + 1
     tabs = [K(icon, 1.5 + i * 7 / n, 7 / n, f"epage{i}", "sys") for i, (icon, _) in enumerate(EMOJI_PAGES)]
+    if 0 <= active < len(tabs) and hint:
+        tabs[active]["hint"] = hint      # "2/5": which screen of this tab; tap again for the next
     return tabs + [K(f"^_^ {kao_set + 1}/{len(KAOMOJI)}" if kao_set >= 0 else "^_^",
                      1.5 + (n - 1) * 7 / n, 7 / n, f"epage{KAO_TAB}", "sys")]
 
@@ -210,9 +252,11 @@ def kaomoji_rows(kao_set):
     ]
 
 
-def emoji_rows(emojis, page):
-    e = (emojis + [""] * EMOJI_PER_PAGE)[:EMOJI_PER_PAGE]
-    tabs = emoji_tabs(-1)
+def emoji_rows(emojis, page, sub=0):
+    screens = max(1, -(-len(emojis) // EMOJI_PER_PAGE))
+    sub %= screens
+    e = (emojis[sub * EMOJI_PER_PAGE:] + [""] * EMOJI_PER_PAGE)[:EMOJI_PER_PAGE]
+    tabs = emoji_tabs(-1, page, f"{sub + 1}/{screens}" if screens > 1 else "")
     return [
         [K(c, i) for i, c in enumerate(e[:10]) if c],
         [K(c, i) for i, c in enumerate(e[10:20]) if c],
@@ -325,6 +369,12 @@ class Keyboard(Gtk.Application):
         self.overview = False  # 10-20: Phosh overview open -> text-field focus must not pop us up
         self.purpose = 0
         self.hint = 0
+        # a restart inside an already-focused field (Console) gets no A/T until refocus, so the
+        # terminal shortcut bar vanished: start from the field type the previous run saw (10-24)
+        try:
+            self.hint, self.purpose = map(int, open(FIELD_FILE).read().split())
+        except (OSError, ValueError):
+            pass
         self.purpose_seen = None
         self.before = ""  # surrounding text before the cursor (if the app reports it)
         self.word = ""  # word being tap-typed
@@ -550,10 +600,13 @@ class Keyboard(Gtk.Application):
             self.before = ""
             self.has_surrounding = False
             self.purpose_seen = None
+            self.hint = self.purpose = 0  # a new field starts as plain text (text-input-v3); a stale terminal purpose blocked swipes
             self.set_suggest([], None)
             self.apply_visible()
         elif c == "X":
+            self.dict_lost = self.dictation.state != "idle"  # focus left mid-dictation: drop the text
             self.dictation.cancel()
+            save_field(0, 0)
             self.mods.clear()
             self.active = False
             self.forced = self.follow()
@@ -562,8 +615,14 @@ class Keyboard(Gtk.Application):
         elif c == "T":
             h, p = line[2:].split()
             fresh = self.purpose_seen != int(p)  # apps resend T after every commit: only react to a new field
+            if fresh:
+                print(time.strftime("%H:%M:%S"), "im T", h, p, file=sys.stderr, flush=True)
             self.hint, self.purpose = int(h), int(p)
             self.purpose_seen = self.purpose
+            if fresh:
+                save_field(self.hint, self.purpose)
+            if fresh:  # A resets the purpose, so the terminal shortcut bar needs a redraw here (10-24)
+                self.area.queue_draw()
             want = "sym" if self.purpose in (2, 3, 4, 9) else None
             if not fresh:
                 pass
@@ -607,6 +666,16 @@ class Keyboard(Gtk.Application):
         else:
             self.backspace(len(old))
             GLib.timeout_add(80, lambda: (self.commit(new), False)[1])
+
+    def end_word(self, sep):
+        """Commit the separator that ends a word; a lone "i" before it is capitalised in the same
+        step (one replace, so the app can't get the separator and the fix out of order)."""
+        m = None if self.no_dict() or self.term_mode() else I_WORD.search(self.before)
+        if m:
+            tok = m.group(1)
+            self.replace(tok, "I" + tok[1:] + sep)
+        else:
+            self.commit(sep)
 
     def key(self, code, mods=0):
         self.send(f"K {code} {mods}")
@@ -705,7 +774,10 @@ class Keyboard(Gtk.Application):
         # punctuation / symbol: glue to the previous word, end the current one
         if self.last_swipe and ch in ".,!?;:" and self.before.endswith(" "):
             self.backspace()
-        self.commit(ch)
+        if ch in ".,!?;:)\"":
+            self.end_word(ch)
+        else:
+            self.commit(ch)
         self.word = ""
         self.last_swipe = None
         self.set_suggest([], None)
@@ -760,13 +832,17 @@ class Keyboard(Gtk.Application):
                 self.key(57)
                 self.before = (self.before + " ")[-200:]
             else:
-                self.commit(" ")
+                self.end_word(" ")
                 self.space_time = now
             self.word = ""
             self.last_swipe = None
             self.set_suggest([], None)
             self.auto_shift()
         elif act == "enter":
+            m = None if self.no_dict() or self.term_mode() or not self.has_surrounding \
+                else I_WORD.search(self.before)       # atomic replace only: Enter must not overtake it
+            if m:
+                self.replace(m.group(1), "I" + m.group(1)[1:])
             self.key(KEY_ENTER)
             self.before += "\n"
             self.word = ""
@@ -783,6 +859,8 @@ class Keyboard(Gtk.Application):
                 self.shift = 0
             self.shift_tap = now
         elif act == "mic":
+            if self.dictation.state == "idle":
+                self.dict_lost = False
             self.dictation.toggle(self.conf["lang"])
         elif act == "emoji":
             self.emoji_page(0 if self.conf.get("recent_emoji") else 1)
@@ -820,7 +898,9 @@ class Keyboard(Gtk.Application):
 
     def dictated(self, text):
         """Type what whisper heard, spaced and cased to fit the text before the cursor."""
-        if not self.active:
+        # not `self.active`: after a keyboard restart in an already-focused field (Console) no
+        # "im A" comes until refocus, yet commits land; checking it threw the text away (10-24)
+        if getattr(self, "dict_lost", False):
             return
         b = self.before.rstrip(" ")
         mid = b and b[-1] not in ".!?\n"
@@ -853,9 +933,12 @@ class Keyboard(Gtk.Application):
             LAYERS["emoji"] = kaomoji_rows(self.kao_set)
             self.set_layer("emoji")
             return
+        same = self.layer == "emoji" and getattr(self, "kao_set", -1) < 0 and getattr(self, "epage", -1) == page
+        self.esub = getattr(self, "esub", 0) + 1 if same else 0
         self.kao_set = -1
+        self.epage = page
         emojis = self.conf.get("recent_emoji", []) if page == 0 else EMOJI_PAGES[page][1].split()
-        LAYERS["emoji"] = emoji_rows(emojis, page)
+        LAYERS["emoji"] = emoji_rows(emojis, page, self.esub)
         self.set_layer("emoji")
 
     def set_layer(self, name):
@@ -905,6 +988,8 @@ class Keyboard(Gtk.Application):
             return
         words = [w for w, _ in res]
         w = self.cased(words[0])
+        if re.fullmatch(r"i(?:['’](?:m|ll|d|ve))?", w):
+            w = "I" + w[1:]
         if self.shift == 1:
             self.shift = 0
         sp = bool(self.before) and not self.before.endswith((" ", "\n", "(", "¿", "¡", "\"", "/"))
@@ -1242,6 +1327,9 @@ class Keyboard(Gtk.Application):
             elif dist > 0.45 * g["kw"] and o.key["kind"] == "char" and self.layer == "abc" \
                     and o.key["act"].isalpha() and not self.no_dict() and not self.mods:
                 o.mode = "swipe"
+            elif dist > 0.45 * g["kw"] and o.key["kind"] == "char" and not getattr(o, "why", None):
+                o.why = f"swipe refused: layer={self.layer} hint={self.hint} purpose={self.purpose} mods={sorted(self.mods)}"
+                print(time.strftime("%H:%M:%S"), o.why, file=sys.stderr, flush=True)
             if o.mode != "tap" and o.timer:
                 GLib.source_remove(o.timer)
                 o.timer = 0
@@ -1430,6 +1518,11 @@ class Keyboard(Gtk.Application):
         b.add_rounded_rect(rr)
         return b.to_path()
 
+    def dot(self, snap, c, a, cx, cy, r):
+        b = Gsk.PathBuilder.new()
+        b.add_circle(Graphene.Point().init(cx, cy), r)
+        snap.append_fill(b.to_path(), Gsk.FillRule.WINDING, self.rgba(c, a))
+
     def rfill(self, snap, c, a, x, y, w, h, r):
         snap.append_fill(self.rpath(x, y, w, h, r), Gsk.FillRule.WINDING, self.rgba(c, a))
 
@@ -1494,8 +1587,8 @@ class Keyboard(Gtk.Application):
                       PINK if self.dictation.state == "recording" else CYAN)
         for name, ix, iw in icons:
             if name == "clip":
-                self.text(snap, "📋", ix, 0, iw, self.bar_h, fs, CYAN if self.layer == "clip" else LAV,
-                          1 if self.layer == "clip" else 0.6)
+                self.text(snap, "C", ix, 0, iw, self.bar_h, fs, CYAN if self.layer == "clip" else LAV,
+                          1 if self.layer == "clip" else 0.6, bold=True)
             elif name == "one":
                 self.draw_one_icon(snap, ix + iw / 2, self.bar_h / 2, self.bar_h * 0.5)
             elif name == "rz":
@@ -1519,11 +1612,14 @@ class Keyboard(Gtk.Application):
                         col, alpha = CYAN, 1.0
                 elif k["act"] == "lang":
                     lab = self.conf["lang"].upper()
-                elif k["act"] == "mic" and self.dictation.state == "recording":
-                    lab, col, size = "●", PINK, size + 4
-                    alpha = 0.55 + 0.45 * abs(math.sin(time.monotonic() * 3))
                 elif k["act"] == "mic" and self.dictation.state == "working":
                     lab, col, alpha = "…", CYAN, 1.0
+                elif k["act"] == "mic":   # a plain dot: white, red + pulsing while recording (10-24)
+                    rec = self.dictation.state == "recording"
+                    r = min(w, h) * (0.17 if rec else 0.14)
+                    self.dot(snap, MIC_REC if rec else MIC_IDLE,
+                             0.55 + 0.45 * abs(math.sin(time.monotonic() * 3)) if rec else 0.9,
+                             x + w / 2, y + h / 2, r)
             elif k["kind"] == "clip":   # clipboard history: a soft box per copy, smaller text
                 self.rfill(snap, LAV, 0.10, x + 4, y + 5, w - 8, h - 10, 8)
                 size -= 2
@@ -1537,6 +1633,8 @@ class Keyboard(Gtk.Application):
                 self.text(snap, lab, x, y, w, h, size, col, alpha)
             if k["act"] == "emoji":  # the current language, small, like the number hints
                 self.text(snap, self.conf["lang"].upper(), x + w * 0.5, y + 2, w * 0.5, h * 0.35, 7, LAV, 0.6)
+            if k.get("hint"):   # emoji tab: which screen of it is showing
+                self.text(snap, k["hint"], x + w * 0.4, y + 1, w * 0.6, h * 0.35, 7, CYAN, 0.85)
             if self.layer == "abc" and k["kind"] == "char" and k["act"] in TOPNUM:
                 self.text(snap, TOPNUM[k["act"]], x + w * 0.55, y + 2, w * 0.45, h * 0.35, 7, LAV, 0.45)
         dragging = {o.grab[0] for o in self.touches.values() if o.mode in ("handle", "scroll")}

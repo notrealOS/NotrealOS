@@ -13,6 +13,14 @@ The sink volume scales every stream, so:
   down by M/N (media loudness unchanged); undone when the last event stream ends.
 No stream is ever set above 100 %, so nothing clips.
 State of a raise is kept in STATE so a crash mid-notification can be undone at the next start.
+
+10-24 OUTPUT + FOLLOW:
+- the DAC / SPEAKER choice (nroutput.py) is applied again whenever sinks come or go.
+- the volume keys only move the default sink. When nothing plays there but something plays on
+  another sink (HI-FI straight to the DAC with SPEAKER chosen, a stream that wouldn't move),
+  the default sink takes that sink's volume and every change is passed on to it, so the keys,
+  Phosh's OSD and the Sound app all show and change what you hear. The default sink gets its
+  own volume back when that ends (kept in FOLLOW for a crash).
 """
 
 import json
@@ -21,7 +29,11 @@ import signal
 import sys
 import time
 
+import glob
+
 import pulsectl
+
+import nroutput
 
 CONF = os.path.expanduser("~/.config/nrvolume.json")
 STATE = os.path.join(os.environ.get("XDG_RUNTIME_DIR", "/tmp"), "nrvolumed.state")
@@ -29,6 +41,7 @@ ROLES = ("event", "notification", "ringtone")
 RESTORE_KEYS = ["sink-input-by-media-role:" + r for r in ("event", "notification", "Ringtone")]
 SETTLE = 0.3          # wait this long after the last event stream before undoing a raise
 EPS = 0.006
+FOLLOW = os.path.join(os.environ.get("XDG_RUNTIME_DIR", "/tmp"), "nrvolumed.follow")
 
 
 def log(*a):
@@ -61,6 +74,8 @@ class Daemon:
         self.idle_since = None   # time the last event stream ended during a raise
         self.saved = None        # during a raise: stream-restore entries before we scaled
         self.dirty = True
+        self.sinks_seen = None   # sink names last time: a change = a DAC came or went
+        self.follow = None       # {"from": default sink, "orig": its volume, "mute", "to": playing sink, "last": vol}
 
     def _mtime(self):
         try:
@@ -159,8 +174,102 @@ class Daemon:
         self.save_state()
         log("lowered back to %.0f%%" % (r["m"] * 100))
 
+    # --- output choice + follow ------------------------------------------------------------
+    def sinks_changed(self):
+        names = tuple(sorted(x.name for x in self.p.sink_list()))
+        if names != self.sinks_seen:
+            first = self.sinks_seen is None
+            self.sinks_seen = names
+            if nroutput.apply(self.p):
+                log("output -> %s (%s chosen)" % (self.p.server_info().default_sink_name, nroutput.prefer()))
+            return not first
+        return False
+
+    @staticmethod
+    def hifi_open():
+        """notarealPlayer's HI-FI holds the DAC's ALSA device itself (its pulse sink stays suspended)."""
+        for st in glob.glob("/proc/asound/*/pcm*p/sub*/status"):
+            card = st.split("/")[3]
+            if card.startswith("card") or not os.path.exists("/proc/asound/%s/usbid" % card):
+                continue
+            try:
+                with open(st) as f:
+                    if f.read().strip() != "closed":
+                        return True
+            except OSError:
+                pass
+        return False
+
+    def playing_elsewhere(self, s):
+        """Name of the sink you hear while the default sink s is silent, else None."""
+        if s.state == "running":
+            return None
+        hifi = self.hifi_open()
+        if hifi and nroutput.is_dac(s.name):
+            return None
+        for x in self.p.sink_list():
+            if x.index != s.index and x.state == "running":
+                return x.name
+        if hifi:
+            dac = [x.name for x in self.p.sink_list() if nroutput.is_dac(x.name)]
+            return dac[0] if dac else None
+        return None
+
+    def save_follow(self):
+        try:
+            if self.follow:
+                with open(FOLLOW, "w") as f:
+                    json.dump(self.follow, f)
+            elif os.path.exists(FOLLOW):
+                os.unlink(FOLLOW)
+        except OSError:
+            pass
+
+    def end_follow(self):
+        f, self.follow = self.follow, None
+        try:
+            s = self.sink(f["from"])
+            self.set_vol(s, f["orig"], sink=True)
+            self.p.sink_mute(s.index, f["mute"])
+        except pulsectl.PulseIndexError:
+            pass
+        self.save_follow()
+        log("follow %s ended, %s back to %.0f%%" % (f["to"], f["from"], f["orig"] * 100))
+
+    def step_follow(self, s):
+        to = self.playing_elsewhere(s)
+        if self.follow and (to != self.follow["to"] or s.name != self.follow["from"]):
+            self.end_follow()
+            s = self.sink()
+        if not to:
+            return
+        try:
+            t = self.sink(to)
+        except pulsectl.PulseIndexError:
+            return
+        if not self.follow:
+            self.follow = {"from": s.name, "orig": avg(s.volume), "mute": bool(s.mute), "to": to,
+                           "last": avg(t.volume), "last_mute": bool(t.mute)}
+            self.save_follow()
+            self.set_vol(s, avg(t.volume), sink=True)
+            self.p.sink_mute(s.index, bool(t.mute))
+            log("follow: keys now move %s (%.0f%%)" % (to, avg(t.volume) * 100))
+            return
+        f = self.follow
+        dv, tv = avg(s.volume), avg(t.volume)
+        if abs(dv - f["last"]) > EPS or bool(s.mute) != f["last_mute"]:     # keys / slider
+            self.set_vol(t, dv, sink=True)
+            self.p.sink_mute(t.index, bool(s.mute))
+            f["last"], f["last_mute"] = dv, bool(s.mute)
+        elif abs(tv - f["last"]) > EPS or bool(t.mute) != f["last_mute"]:   # changed on the DAC itself
+            self.set_vol(s, tv, sink=True)
+            self.p.sink_mute(s.index, bool(t.mute))
+            f["last"], f["last_mute"] = tv, bool(t.mute)
+
     # --- main step ------------------------------------------------------------------------
     def step(self):
+        if self.sinks_changed() and self.follow:
+            self.end_follow()
         mt = self._mtime()
         if mt != self.conf_mtime:
             self.conf_mtime, self.n = mt, read_notify()
@@ -182,6 +291,8 @@ class Daemon:
         self.write_restore(min(1.0, self.n / m) if m > 0 else 1.0)
 
         events = [si for si in self.p.sink_input_list() if si.sink == s.index and is_event(si)]
+        if not self.raised and not events:
+            self.step_follow(s)
         if self.raised:
             # streams that appeared during the raise get scaled down too
             for si in self.p.sink_input_list():
@@ -206,7 +317,15 @@ class Daemon:
 
 
 def recover(pulse):
-    """Undo a raise left behind by a crash."""
+    """Undo a raise / follow left behind by a crash."""
+    try:
+        with open(FOLLOW) as f:
+            fo = json.load(f)
+        d = Daemon(pulse)
+        d.follow = fo
+        d.end_follow()
+    except (OSError, ValueError, KeyError, pulsectl.PulseError):
+        pass
     try:
         with open(STATE) as f:
             r = json.load(f)
@@ -241,11 +360,13 @@ def main():
                 # wake on any sink / stream event, at least every 0.1 s while raised, else 1 s
                 pulse.event_listen(timeout=0.1 if d.raised else 1.0)
         finally:
-            if d.raised:
-                try:
+            try:
+                if d.raised:
                     d.lower()
-                except pulsectl.PulseError:
-                    pass
+                if d.follow:
+                    d.end_follow()
+            except pulsectl.PulseError:
+                pass
 
 
 if __name__ == "__main__":

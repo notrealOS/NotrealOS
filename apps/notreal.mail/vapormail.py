@@ -718,7 +718,7 @@ class ComposePage(Adw.NavigationPage):
             box.append(row)
         self.to = self._field(box, "TO", to, Gtk.InputPurpose.EMAIL, suggest=True)
         self.cc = self._field(box, "CC", cc, Gtk.InputPurpose.EMAIL, suggest=True)
-        self.subject = self._field(box, "RE", subject, Gtk.InputPurpose.FREE_FORM)
+        self.subject = self._field(box, "SUBJECT", subject, Gtk.InputPurpose.FREE_FORM)
         self.att_box = Gtk.FlowBox(selection_mode=Gtk.SelectionMode.NONE, visible=False,
                                    max_children_per_line=3)
         box.append(self.att_box)
@@ -931,7 +931,8 @@ class MailList(Gtk.Box):
         self.lb.connect("row-activated", self._activated)
         self.empty = label("✦ nothing snoozed ✦" if snoozed else "✦ nothing sent ✦" if sent
                            else "✦ no spam ✦" if folder == "spam" else "✦ trash is empty ✦"
-                           if folder == "trash" else "✦ inbox zero ✦", "empty",
+                           if folder == "trash" else "✦ search all mail ✦" if folder == "search"
+                           else "✦ inbox zero ✦", "empty",
                            xalign=0.5, ellipsize=False)
         self.empty.set_vexpand(True)
         self.stack = Gtk.Stack(vexpand=True)
@@ -972,7 +973,8 @@ class MailList(Gtk.Box):
     def _add_row(self, m, position=-1):
         sr = SwipeRow(m, self.snoozed, self.sent, RESTORE_HINT.get(self.folder))
         sr.connect("swiped", self._swiped)
-        sr.connect("avatar-tapped", lambda r: self.toggle(r.msg))
+        if self.folder != "search":
+            sr.connect("avatar-tapped", lambda r: self.toggle(r.msg))
         if m["msgid"] in self.picked:
             sr.set_picked(True)
         sr.swipe_enabled = not self.picked
@@ -1060,6 +1062,12 @@ class MailList(Gtk.Box):
 
     def _swiped(self, sr, direction):
         m = sr.msg
+        if self.folder == "search":         # results: swipe left = trash, right springs back
+            if direction > 0:
+                sr.animate_to(0)
+            else:
+                self.win.trash(m, False, self)
+            return
         if direction > 0:
             def chosen(ts):
                 if ts:
@@ -1075,10 +1083,106 @@ class MailList(Gtk.Box):
             self.win.trash(m, False, self)
 
     def _overshot(self, sc, pos):
+        if self.folder == "search":
+            return
         if pos == Gtk.PositionType.TOP and self.folder:
             self.win.refresh_folder(self.folder)
         elif pos == Gtk.PositionType.TOP and not self.snoozed:
             self.win.refresh()
+
+
+# --- search (10-24) ---------------------------------------------------------
+
+class SearchPage(Adw.NavigationPage):
+    """Mail already on the phone matches as you type; then every account's server search
+    (Gmail: X-GM-RAW over All Mail, same syntax as the web; Microsoft: $search)."""
+    DEBOUNCE = 600
+
+    def __init__(self, win):
+        super().__init__(title="Search")
+        self.win = win
+        self.gen = 0
+        self.timer = None
+        tv = Adw.ToolbarView()
+        hb = Adw.HeaderBar(show_end_title_buttons=False)
+        hb.add_css_class("vapor-bar")
+        self.entry = Gtk.SearchEntry(hexpand=True, placeholder_text="search all mail")
+        self.entry.add_css_class("mail-search")
+        self.entry.connect("search-changed", self._changed)
+        self.entry.connect("activate", lambda *_: self._server_now())
+        hb.set_title_widget(self.entry)
+        tv.add_top_bar(hb)
+        box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL)
+        self.status = label("from:  subject:  has:attachment  work in Gmail", "search-status", ellipsize=True)
+        box.append(self.status)
+        self.list = MailList(win, folder="search")
+        self.list.set_vexpand(True)
+        box.append(self.list)
+        tv.set_content(box)
+        self.set_child(tv)
+        self.connect("shown", lambda *_: self.entry.grab_focus())
+
+    def _local(self, q):
+        words = [w for w in q.lower().split() if ":" not in w]
+        if not words:
+            return []
+        seen, out = set(), []
+        lists = [self.win.inbox, self.win.snoozed] + list(self.win.folder_lists.values())
+        for lst in lists:
+            for m in lst.msgs:
+                hay = " ".join((m.get("subject", ""), m.get("from_name", ""), m.get("from_addr", ""),
+                                m.get("snippet", ""))).lower()
+                if m["msgid"] not in seen and all(w in hay for w in words):
+                    seen.add(m["msgid"])
+                    out.append(m)
+        out.sort(key=lambda m: m.get("date", 0), reverse=True)
+        return out
+
+    def _changed(self, entry):
+        q = entry.get_text().strip()
+        self.gen += 1
+        if self.timer:
+            GLib.source_remove(self.timer)
+            self.timer = None
+        if not q:
+            self.list.set_msgs([])
+            self.status.set_label("from:  subject:  has:attachment  work in Gmail")
+            return
+        self.local = self._local(q)
+        self.list.set_msgs(self.local)
+        self.status.set_label(f"{len(self.local)} on the phone · searching all mail…")
+        self.timer = GLib.timeout_add(self.DEBOUNCE, self._server_now)
+
+    def _server_now(self):
+        self.timer = None
+        q = self.entry.get_text().strip()
+        if not q:
+            return False
+        self.gen += 1
+        gen = self.gen
+        accounts = self.win.account_list()
+
+        def work():
+            found, errors = [], []
+            for a in accounts:
+                try:
+                    found += a.search(q)
+                except Exception as e:  # noqa: BLE001 - one broken account must not hide the others
+                    errors.append(str(e))
+            return found, errors
+
+        def done(res):
+            if gen != self.gen:
+                return
+            found, errors = res
+            ids = {m["msgid"] for m in found}
+            msgs = found + [m for m in getattr(self, "local", []) if m["msgid"] not in ids]
+            msgs.sort(key=lambda m: m.get("date", 0), reverse=True)
+            self.list.set_msgs(msgs)
+            self.status.set_label(f"{len(msgs)} found" + (" · newest 50 per account" if len(found) >= 50 else "")
+                                  + (" · " + errors[0][:60] if errors else ""))
+        bg(work, done, lambda e: gen == self.gen and self.status.set_label(f"search failed: {e}"))
+        return False
 
 
 # --- sign in -------------------------------------------------------------
@@ -1196,6 +1300,10 @@ class Window(Adw.ApplicationWindow):
         self.refresh_btn.add_css_class("flat")
         self.refresh_btn.connect("clicked", lambda *_: self.refresh())
         hb.pack_start(self.refresh_btn)
+        search = Gtk.Button(icon_name="system-search-symbolic", tooltip_text="Search all mail")
+        search.add_css_class("flat")
+        search.connect("clicked", lambda *_: self.nav.push(SearchPage(self)))
+        hb.pack_start(search)
 
         # selection header (left-handed: actions on the left, cancel on the right)
         sel = Adw.HeaderBar(show_back_button=False, show_end_title_buttons=False)

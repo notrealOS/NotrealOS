@@ -5,6 +5,7 @@ Edits preview live on a downscaled copy; SAVE renders the full image in the back
 writes <name>_edit.jpg next to the original (the original is never overwritten).
 Left-handed: tool tabs and SAVE / SHARE sit on the left.
 """
+import math
 import os
 import subprocess
 import sys
@@ -16,7 +17,8 @@ gi.require_version("Adw", "1")
 gi.require_version("Gsk", "4.0")
 gi.require_version("Graphene", "1.0")
 gi.require_version("GdkPixbuf", "2.0")
-from gi.repository import Adw, Gdk, GdkPixbuf, Gio, GLib, GObject, Graphene, Gsk, Gtk  # noqa: E402
+gi.require_version("Pango", "1.0")
+from gi.repository import Adw, Gdk, GdkPixbuf, Gio, GLib, GObject, Graphene, Gsk, Gtk, Pango  # noqa: E402
 
 import numpy as np  # noqa: E402
 
@@ -28,6 +30,9 @@ APP_ID = "dev.notareal.Edit"
 PREVIEW_PX = 1400
 CURVE_X = [0.0, 0.25, 0.5, 0.75, 1.0]
 RATIOS = [("FREE", None), ("1:1", 1.0), ("4:3", 4 / 3), ("3:4", 3 / 4), ("16:9", 16 / 9)]
+MARK_TOOLS = [("PEN", "pen"), ("HILITE", "hl"), ("ARROW", "arrow"), ("BOX", "box"), ("TEXT", "text")]
+MARK_COLORS = ["#ff3b30", "#ffcc00", "#ffffff", "#111111", "#2f80ff", "#34c759"]
+MARK_SIZES = [("S", 0.004), ("M", 0.008), ("L", 0.016)]     # line width, share of the long side
 
 
 # --- image maths ---------------------------------------------------------------------------------
@@ -179,7 +184,76 @@ def render(a, state):
 
 def default_state():
     return {"crop": (0.0, 0.0, 1.0, 1.0), "rot": 0, "sat": 1.0, "blur": 0.0, "blur_edges": False, "vig": 0.0,
-            "curves": {c: list(CURVE_X) for c in ("rgb", "r", "g", "b")}}
+            "curves": {c: list(CURVE_X) for c in ("rgb", "r", "g", "b")}, "marks": []}
+
+
+# --- markup ---------------------------------------------------------------------------------------
+# A mark: {"kind": pen|hl|arrow|box|text, "color", "size", "pts", "text"}. Points live in the rotated,
+# UNCROPPED picture's 0..1 space (like the crop box); size is a share of its long side. So marks stay
+# on the same spot when the crop changes, and the small preview and the full save draw them alike.
+
+def draw_markup(snap, marks, crop, frame, layout_for):
+    """Draw marks onto frame = (x, y, w, h), where the CROPPED picture sits."""
+    if not marks:
+        return
+    cx0, cy0, cx1, cy1 = crop
+    fx, fy, fw, fh = frame
+    sx, sy = fw / max(cx1 - cx0, 1e-6), fh / max(cy1 - cy0, 1e-6)    # the whole picture's size
+    ref = max(sx, sy)
+    pt = lambda p: (fx + (p[0] - cx0) * sx, fy + (p[1] - cy0) * sy)
+    snap.push_clip(rect(fx, fy, fw, fh))
+    for m in marks:
+        col = Gdk.RGBA()
+        col.parse(m["color"])
+        lw = max(1.0, m["size"] * ref)
+        pts = [pt(p) for p in m["pts"]]
+        if m["kind"] == "text":
+            px = lw * 6
+            layout = layout_for(m["text"], px)
+            tw, th = layout.get_pixel_size()
+            shadow = Gdk.RGBA()
+            shadow.parse("rgba(255,255,255,0.6)" if m["color"] == MARK_COLORS[3] else "rgba(0,0,0,0.6)")
+            for c, off in ((shadow, max(1.0, px * 0.05)), (col, 0.0)):
+                snap.save()
+                snap.translate(Graphene.Point().init(pts[0][0] - tw / 2 + off, pts[0][1] - th / 2 + off))
+                snap.append_layout(layout, c)
+                snap.restore()
+            continue
+        pb = Gsk.PathBuilder.new()
+        (ax, ay), (bx, by) = pts[0], pts[-1]
+        if m["kind"] in ("pen", "hl"):
+            pb.move_to(ax, ay)
+            for p in pts[1:]:
+                pb.line_to(*p)
+            if len(pts) == 1:
+                pb.line_to(ax + 0.01, ay)            # a tap = a dot
+        elif m["kind"] == "arrow":
+            pb.move_to(ax, ay)
+            pb.line_to(bx, by)
+            ang, head = math.atan2(by - ay, bx - ax), lw * 4.5
+            for s in (-1, 1):
+                pb.move_to(bx, by)
+                pb.line_to(bx - head * math.cos(ang + s * 0.45), by - head * math.sin(ang + s * 0.45))
+        else:
+            pb.add_rect(rect(min(ax, bx), min(ay, by), abs(bx - ax), abs(by - ay)))
+        if m["kind"] == "hl":                         # highlighter: wide and see-through
+            lw *= 4
+            col.alpha = 0.4
+        stroke = Gsk.Stroke.new(lw)
+        stroke.set_line_cap(Gsk.LineCap.ROUND)
+        stroke.set_line_join(Gsk.LineJoin.ROUND)
+        snap.append_stroke(pb.to_path(), stroke, col)
+    snap.pop()
+
+
+def composite(out, layer):
+    """Lay an HxWx4 RGBA (straight alpha) layer over out, in place."""
+    for y in range(0, out.shape[0], 512):
+        m = layer[y:y + 512]
+        a = m[..., 3:4].astype(np.float32) * (1 / 255)
+        o = out[y:y + 512].astype(np.float32)
+        out[y:y + 512] = np.clip(o + (m[..., :3] - o) * a + 0.5, 0, 255).astype(np.uint8)
+    return out
 
 
 def rect(x, y, w, h):
@@ -201,12 +275,20 @@ class Canvas(Gtk.Widget):
         self.texture = None
         self.full_tex = None          # the uncropped preview while cropping
         self.cropping = False
+        self.marking = False
         self.ratio = None
         drag = Gtk.GestureDrag()
         drag.connect("drag-begin", self._begin)
         drag.connect("drag-update", self._update)
         self.add_controller(drag)
         self._grab = None
+
+    def layout(self, text, px):
+        lay = self.create_pango_layout(text)
+        fd = Pango.FontDescription.from_string("Sans Bold")
+        fd.set_absolute_size(px * Pango.SCALE)
+        lay.set_font_description(fd)
+        return lay
 
     def fit(self, tw, th):
         w, h = self.get_width(), self.get_height()
@@ -221,6 +303,8 @@ class Canvas(Gtk.Widget):
             return
         x, y, dw, dh = self.fit(tex.get_width(), tex.get_height())
         snap.append_texture(tex, rect(x, y, dw, dh))
+        draw_markup(snap, self.editor.state["marks"],
+                    (0.0, 0.0, 1.0, 1.0) if self.cropping else self.editor.state["crop"], (x, y, dw, dh), self.layout)
         if not self.cropping:
             return
         cx0, cy0, cx1, cy1 = self.editor.state["crop"]
@@ -244,7 +328,30 @@ class Canvas(Gtk.Widget):
         tex = self.full_tex
         return self.fit(tex.get_width(), tex.get_height()) if tex else (0, 0, 1, 1)
 
+    def _to_pic(self, sx, sy):
+        """Screen point -> the rotated, uncropped picture's 0..1 space (where marks live)."""
+        x, y, dw, dh = self.fit(self.texture.get_width(), self.texture.get_height())
+        cx0, cy0, cx1, cy1 = self.editor.state["crop"]
+        return cx0 + (sx - x) / dw * (cx1 - cx0), cy0 + (sy - y) / dh * (cy1 - cy0)
+
     def _begin(self, g, sx, sy):
+        if self.marking and self.texture:
+            self._grab = None
+            ed = self.editor
+            m = {"kind": ed.mark_tool, "color": ed.mark_color, "size": ed.mark_size, "pts": [self._to_pic(sx, sy)]}
+            if m["kind"] == "text":
+                text = ed.mark_text.get_text().strip()
+                if not text:
+                    ed.toast("type the text first, then tap the photo")
+                    ed.mark_text.grab_focus()
+                    return
+                m["text"] = text
+            else:
+                self._grab = "mark"
+                self._start = (sx, sy, m)
+            ed.state["marks"].append(m)
+            self.queue_draw()
+            return
         if not self.cropping:
             self._grab = None
             return
@@ -268,6 +375,15 @@ class Canvas(Gtk.Widget):
 
     def _update(self, g, ox, oy):
         if not self._grab:
+            return
+        if self._grab == "mark":
+            sx, sy, m = self._start
+            p = self._to_pic(sx + ox, sy + oy)
+            if m["kind"] in ("pen", "hl"):
+                m["pts"].append(p)
+            else:
+                m["pts"][1:] = [p]
+            self.queue_draw()
             return
         x, y, dw, dh = self._frame()
         sx, sy, (cx0, cy0, cx1, cy1) = self._start
@@ -478,14 +594,51 @@ class Window(Adw.ApplicationWindow):
         self.vig.connect("value-changed", self._vig)
         vig.append(self.vig)
         self.tools.add_named(vig, "vig")
+        # markup: draw on the photo (left-handed: UNDO first in the colour row)
+        self.mark_tool, self.mark_color, self.mark_size = "pen", MARK_COLORS[0], MARK_SIZES[1][1]
+        mk = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=8, margin_start=12, margin_end=12)
+        kinds = Gtk.Box(spacing=6)
+        group = None
+        for text, key in MARK_TOOLS:
+            b = Gtk.ToggleButton(label=text, css_classes=["chip"], active=key == "pen")
+            if group:
+                b.set_group(group)
+            group = group or b
+            b.connect("toggled", lambda btn, k=key: btn.get_active() and self._mark_tool(k))
+            kinds.append(b)
+        mk.append(kinds)
+        row = Gtk.Box(spacing=6)
+        undo = Gtk.Button(label="UNDO", css_classes=["chip"])
+        undo.connect("clicked", lambda *_: self.undo_mark())
+        row.append(undo)
+        group = None
+        for i, c in enumerate(MARK_COLORS):
+            b = Gtk.ToggleButton(css_classes=["swatch", f"sw{i}"], active=i == 0, valign=Gtk.Align.CENTER)
+            if group:
+                b.set_group(group)
+            group = group or b
+            b.connect("toggled", lambda btn, c=c: btn.get_active() and setattr(self, "mark_color", c))
+            row.append(b)
+        group = None
+        for text, size in MARK_SIZES:
+            b = Gtk.ToggleButton(label=text, css_classes=["chip"], active=size == self.mark_size)
+            if group:
+                b.set_group(group)
+            group = group or b
+            b.connect("toggled", lambda btn, s=size: btn.get_active() and setattr(self, "mark_size", s))
+            row.append(b)
+        mk.append(row)
+        self.mark_text = Gtk.Entry(placeholder_text="type, then tap the photo", visible=False)
+        mk.append(self.mark_text)
+        self.tools.add_named(mk, "mark")
         body.append(self.tools)
 
         self._tab_btns = []
         tabs = Gtk.Box(spacing=8, margin_start=12, margin_end=12, margin_top=8, margin_bottom=14,
                        halign=Gtk.Align.START)
         group = None
-        for text, key in (("CROP", "crop"), ("CURVES", "curves"), ("COLOR", "sat"), ("BLUR", "blur"),
-                          ("VIGNETTE", "vig")):
+        for text, key in (("CROP", "crop"), ("MARKUP", "mark"), ("CURVES", "curves"), ("COLOR", "sat"),
+                          ("BLUR", "blur"), ("VIGNETTE", "vig")):
             b = Gtk.ToggleButton(label=text, css_classes=["tool-tab"], active=key == "curves")
             if group:
                 b.set_group(group)
@@ -534,6 +687,7 @@ class Window(Adw.ApplicationWindow):
     # tools
     def tool(self, key):
         self.tools.set_visible_child_name(key)
+        self.canvas.marking = key == "mark"
         cropping = key == "crop"
         if cropping != self.canvas.cropping:
             self.canvas.cropping = cropping
@@ -564,11 +718,24 @@ class Window(Adw.ApplicationWindow):
                                  f"VIGNETTE {int(abs(v) * 100)}% {'DARK' if v > 0 else 'WHITE'}")
         self.refresh(live=True)
 
+    def _mark_tool(self, key):
+        self.mark_tool = key
+        self.mark_text.set_visible(key == "text")
+        if key == "text":
+            self.mark_text.grab_focus()
+
+    def undo_mark(self):
+        if self.state["marks"]:
+            self.state["marks"].pop()
+            self.canvas.queue_draw()
+
     def rotate(self, step):
         self.state["rot"] = (self.state["rot"] + step) % 4
-        # rotate the crop box with the picture so it keeps covering the same part
+        # rotate the crop box (and the marks) with the picture so they keep covering the same part
         x0, y0, x1, y1 = self.state["crop"]
         self.state["crop"] = (1 - y1, x0, 1 - y0, x1) if step > 0 else (y0, 1 - x1, y1, 1 - x0)
+        for m in self.state["marks"]:
+            m["pts"] = [(1 - y, x) if step > 0 else (y, 1 - x) for x, y in m["pts"]]
         self.refresh()
 
     def reset(self):
@@ -577,6 +744,7 @@ class Window(Adw.ApplicationWindow):
         self.blur.set_value(0.0)
         self.vig.set_value(0.0)
         self.blur_modes[0].set_active(True)
+        self.mark_text.set_text("")
         self.canvas.ratio = None
         self.curve.queue_draw()
         self.refresh()
@@ -604,6 +772,26 @@ class Window(Adw.ApplicationWindow):
         return False
 
     # saving
+    def markup_layer(self, state):
+        """The marks at full size as an HxWx4 RGBA array (None without marks). GSK renders them on
+        the GPU, so this runs here on the main thread, before the save thread starts."""
+        if not state["marks"]:
+            return None
+        h, w = self.full.shape[:2]
+        if state["rot"] % 2:
+            w, h = h, w
+        x0, y0, x1, y1 = state["crop"]
+        cw = max(int(x1 * w), int(x0 * w) + 1) - int(x0 * w)       # the same crop maths as render()
+        ch = max(int(y1 * h), int(y0 * h) + 1) - int(y0 * h)
+        snap = Gtk.Snapshot()
+        draw_markup(snap, state["marks"], state["crop"], (0, 0, cw, ch), self.canvas.layout)
+        tex = self.get_renderer().render_texture(snap.to_node(), rect(0, 0, cw, ch))
+        dl = Gdk.TextureDownloader.new(tex)
+        dl.set_format(Gdk.MemoryFormat.R8G8B8A8)
+        data, stride = dl.download_bytes()
+        a = np.frombuffer(data.get_data(), np.uint8)
+        return np.lib.stride_tricks.as_strided(a, (ch, cw, 4), (stride, 4, 1)).copy()
+
     def out_path(self):
         root, _ext = os.path.splitext(self.path)
         p, n = root + "_edit.jpg", 1
@@ -618,10 +806,14 @@ class Window(Adw.ApplicationWindow):
         self.toast("saving…")
         state = {k: (dict(v) if isinstance(v, dict) else v) for k, v in self.state.items()}
         state["curves"] = {k: list(v) for k, v in self.state["curves"].items()}
+        layer = self.markup_layer(state)
         out = self.out_path()
 
         def work():
-            a = np.ascontiguousarray(render(self.full, state))
+            a = render(self.full, state)
+            if layer is not None:
+                composite(a, layer)
+            a = np.ascontiguousarray(a)
             h, w = a.shape[:2]
             pb = GdkPixbuf.Pixbuf.new_from_bytes(GLib.Bytes.new(a.tobytes()), GdkPixbuf.Colorspace.RGB,
                                                  False, 8, w, h, w * 3)

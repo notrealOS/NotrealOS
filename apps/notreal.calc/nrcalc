@@ -1,0 +1,2 @@
+#!/bin/sh
+exec python3 "$(dirname "$(readlink -f "$0")")"/nrcalc.py "$@" >>"${XDG_RUNTIME_DIR:-/tmp}/nrcalc.log" 2>&1

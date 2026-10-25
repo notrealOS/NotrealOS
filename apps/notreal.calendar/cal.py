@@ -4,6 +4,7 @@ outlook.com + Microsoft 365 (evolution-ews). Evolution syncs our changes back to
 Events come out as plain dicts; recurring events are expanded into one dict per occurrence.
 """
 import datetime
+import re
 import os
 import threading
 
@@ -37,6 +38,20 @@ def reminders(comp):
             out.append(-trig.get_duration().as_int() // 60)
         a = comp.get_next_component(ICalGLib.ComponentKind.VALARM_COMPONENT)
     return sorted(set(out), reverse=True)
+
+
+MEET_RE = re.compile(r"https://(?:meet\.google\.com/[a-z0-9-]+|[\w.-]*zoom\.us/j/\S+|teams\.microsoft\.com/l/meetup-join/\S+|teams\.live\.com/meet/\S+)", re.I)
+
+
+def meeting_link(comp):
+    """Video meeting link: Google's X-GOOGLE-CONFERENCE, else a Meet/Zoom/Teams URL in the text (10-24)."""
+    p = comp.get_first_property(ICalGLib.PropertyKind.X_PROPERTY)
+    while p:
+        if p.get_x_name() == "X-GOOGLE-CONFERENCE" and p.get_x():
+            return p.get_x().strip()
+        p = comp.get_next_property(ICalGLib.PropertyKind.X_PROPERTY)
+    m = MEET_RE.search((comp.get_location() or "") + "\n" + (comp.get_description() or ""))
+    return m.group(0).rstrip(".,)>") if m else None
 
 
 def _when(itime):
@@ -134,6 +149,7 @@ class Store:
                     "all_day": all_day, "location": comp.get_location() or "",
                     "notes": comp.get_description() or "",
                     "remind": reminders(comp),
+                    "meet": meeting_link(comp),
                     "recurring": bool(comp.get_first_property(ICalGLib.PropertyKind.RRULE_PROPERTY)) or bool(rid),
                 })
                 return True

@@ -19,6 +19,10 @@ No FX: the theme looks were removed 10-17 (user); fx.py stays for the pass-throu
 FILM (10-18, top-left chip): 35 mm stock looks from film.py, live in the shader (with the 3:2
 frame dimmed in photo mode) and on saved photos (cropped to 3:2 + the notreal.camera stamp).
 
+QR (10-24): in PHOTO mode a preview frame is scanned for QR codes ~2x a second (qr.py, libzbar);
+a pill bottom-left offers OPEN / JOIN Wi-Fi / CALL / ... + COPY. Never during a capture, focus
+sweep or recording.
+
 VIDEO mode (the PHOTO/VIDEO chip under the lenses): the shutter starts/stops recording. A branch
 is hung off the tee after the FX shader while the preview runs: the GPU turns the frame upright
 (lens mounting + how the phone was held at the start) and scales it to 1080x1440 (or 1440x1080),
@@ -40,7 +44,8 @@ gi.require_version("Gtk", "4.0")
 gi.require_version("Adw", "1")
 gi.require_version("Gst", "1.0")
 gi.require_version("GdkPixbuf", "2.0")
-from gi.repository import Adw, Gdk, GdkPixbuf, Gio, GLib, Gst, Gtk  # noqa: E402
+gi.require_version("Graphene", "1.0")
+from gi.repository import Adw, Gdk, GdkPixbuf, Gio, GLib, GLibUnix, Graphene, Gst, Gtk  # noqa: E402
 
 import numpy as np  # noqa: E402
 
@@ -51,6 +56,10 @@ import notareal_theme  # noqa: E402
 import fx  # noqa: E402
 import film  # noqa: E402
 import rawdev  # noqa: E402
+try:
+    import qr  # noqa: E402
+except OSError:            # libzbar missing: no QR scanning, the camera still works
+    qr = None
 from camsvc import restart_camera_services  # noqa: E402
 
 APP_ID = "dev.notareal.Camera"
@@ -60,6 +69,9 @@ CACHE = os.path.join(HOME, ".cache", "nrcamera")
 CONF = os.path.join(HOME, ".config", "nrcamera", "config.json")
 RUN = os.environ.get("XDG_RUNTIME_DIR", f"/run/user/{os.getuid()}")
 EV_FILE = os.path.join(RUN, "camera-ev")            # read by our libcamera AGC (r10+)
+# our pid while the window is in front: voiced (volume up) / circled (volume down) then send
+# SIGUSR1 = shutter / SIGUSR2 = focus on the centre instead of changing the volume (10-25)
+KEYS_FILE = os.path.join(RUN, "nrcamera-keys")
 TORCH = "/sys/class/leds/white:flash/brightness"
 AFD = "/usr/local/sbin/afd"
 
@@ -74,15 +86,19 @@ LENSES = [
          af_range=(250, 600), af_default=400),
     dict(key="main", label="1×", model="imx766", path="camera@10", preview=(1600, 1200),
          still=(4096, 3072), rot=90, af=os.path.join(HOME, ".config", "af-position-wide"),
-         af_range=(50, 460), af_default=80),   # 80 = infinity (sweep 10-18)
+         af_range=(50, 800), af_default=80),   # 80 = infinity (sweep 10-18); 460 cap stopped close-ups (10-25)
     dict(key="front", label="◐", model="imx471", path="camera@1a", preview=(2048, 1536),
-         still=None, rot=270, af=None, mirror=True),
+         still=(2304, 1728), mp="4 MP", rot=270, af=None, mirror=True),   # raw via rawdev (10-25)
 ]
 STILL_FRAMES = 10          # frames `cam` captures; the last one has a settled exposure
 VID_DIR = os.environ.get("NRCAM_OUT") or os.path.join(HOME, "Videos", "Camera")
 VID_LONG, VID_SHORT = 1440, 1080
 VID_KBPS = 12000
 # counter-clockwise turn -> glvideoflip method
+QR_EVERY = 450           # ms between QR scans of the preview
+QR_KEEP = 4.0            # s the QR pill stays after the code leaves the picture
+QR_ACTION = {"url": "OPEN", "wifi": "JOIN", "tel": "CALL", "sms": "SMS", "mail": "MAIL", "geo": "MAP"}
+QR_ICON = {"url": "🔗", "wifi": "📶", "tel": "📞", "sms": "💬", "mail": "✉", "geo": "📍", "text": "▦"}
 FLIP = {0: "none", 90: "counterclockwise", 180: "rotate-180", 270: "clockwise"}
 
 
@@ -192,6 +208,13 @@ class Accel:
 HELD_CCW = {"normal": 0, "left-up": 270, "right-up": 90, "bottom-up": 180, "undefined": 0}
 
 
+def held_ccw(lens, held):
+    """Total ccw turn: lens mounting + hold. The front lens faces the other way, so a sideways
+    hold turns it the opposite direction (landscape selfies came out upside down, 10-25)."""
+    turn = HELD_CCW.get(held, 0)
+    return (lens["rot"] + (-turn if lens.get("mirror") else turn)) % 360
+
+
 class Window(Adw.ApplicationWindow):
     def __init__(self, app):
         super().__init__(application=app, title="Camera")
@@ -211,12 +234,18 @@ class Window(Adw.ApplicationWindow):
         self.cams = {}
         self.tag_rot = None
         self.countdown = 0
+        self.qr_code = None          # the payload on the QR pill, parsed (qr.parse)
+        self.qr_seen = 0.0           # when that code was last in the picture
+        self.qr_scanning = False
+        self.qr_n = 0
         os.makedirs(OUT_DIR, exist_ok=True)
         os.makedirs(CACHE, exist_ok=True)
         self.afd_fast = os.path.exists(AFD) and "FAST_POLL" in open(AFD, errors="ignore").read()
         self._build()
         notareal_theme.on_change(self._theme_changed)
         GLib.idle_add(self._first_start)
+        if qr:
+            GLib.timeout_add(QR_EVERY, self._qr_tick)
         if os.environ.get("NRCAM_SELFTEST") == "video":   # tests: a 5 s recording, then quit
             self.conf["mode"] = "video"
             GLib.timeout_add(4000, lambda: (self.shoot(), False)[1])
@@ -240,6 +269,8 @@ class Window(Adw.ApplicationWindow):
             GLib.timeout_add(4000, selftest)
         self.connect("close-request", self._on_close)
         self.connect("notify::is-active", self._on_active)
+        GLibUnix.signal_add(GLib.PRIORITY_DEFAULT, 10, lambda: (self.shoot(), True)[1])
+        GLibUnix.signal_add(GLib.PRIORITY_DEFAULT, 12, lambda: (self._focus_centre(), True)[1])
 
     # ---------- UI ----------
     def _build(self):
@@ -306,6 +337,22 @@ class Window(Adw.ApplicationWindow):
         self.status = Gtk.Label(css_classes=["cam-status"], visible=False, can_target=False,
                                 valign=Gtk.Align.END, margin_bottom=12)
         ov.add_overlay(self.status)
+
+        # QR pill: action on the left (left-handed), COPY, close
+        self.qr_pill = Gtk.Box(spacing=8, css_classes=["cam-qr"], visible=False, halign=Gtk.Align.START,
+                               valign=Gtk.Align.END, margin_start=12, margin_end=12, margin_bottom=52)
+        self.qr_act = Gtk.Button(css_classes=["cam-chip", "on"])
+        self.qr_act.connect("clicked", lambda *_: self._qr_action())
+        self.qr_text = Gtk.Label(css_classes=["cam-qr-text"], xalign=0, ellipsize=3, max_width_chars=22,
+                                 hexpand=True)
+        self.qr_copy = Gtk.Button(label="COPY", css_classes=["cam-chip"])
+        self.qr_copy.connect("clicked", lambda *_: self._qr_copy())
+        close = Gtk.Button(label="✕", css_classes=["cam-chip", "small"])
+        close.connect("clicked", lambda *_: self._qr_hide(dismiss=True))
+        for w in (self.qr_act, self.qr_text, self.qr_copy, close):
+            self.qr_pill.append(w)
+        ov.add_overlay(self.qr_pill)
+        self.qr_dismissed = None     # the code the user closed: don't pop it up again right away
         root.append(ov)
 
         # lens row
@@ -331,7 +378,8 @@ class Window(Adw.ApplicationWindow):
         center.append(self.mode_btn)
         center.append(self.mode_label)
         bottom.set_center_widget(center)
-        self.thumb = Gtk.Button(css_classes=["cam-thumb"], valign=Gtk.Align.CENTER)
+        self.thumb = Gtk.Button(css_classes=["cam-thumb"], valign=Gtk.Align.CENTER, halign=Gtk.Align.CENTER,
+                                overflow=Gtk.Overflow.HIDDEN)
         self.thumb.set_size_request(60, 60)
         self.thumb_pic = Gtk.Picture(content_fit=Gtk.ContentFit.COVER, can_shrink=True)
         self.thumb.set_child(self.thumb_pic)
@@ -355,8 +403,10 @@ class Window(Adw.ApplicationWindow):
         video = self.conf["mode"] == "video"
         hq_ok = lens["still"] is not None and not video
         self.hq_btn.set_sensitive(hq_ok)
-        self.hq_btn.set_label("1440p" if video else "12 MP" if (self.conf["hq"] and hq_ok) else "FAST")
-        self.hdr_btn.set_sensitive(hq_ok and self.conf["hq"] and lens["key"] == "main")
+        self.hq_btn.set_label("1440p" if video else lens.get("mp", "12 MP") if (self.conf["hq"] and hq_ok) else "FAST")
+        # always tappable so HDR can be turned off from any lens; dimmed where it doesn't apply
+        hdr_ok = hq_ok and self.conf["hq"] and lens["key"] == "main"
+        (self.hdr_btn.remove_css_class if hdr_ok else self.hdr_btn.add_css_class)("na")
         (self.hdr_btn.add_css_class if self.conf["hdr"] else self.hdr_btn.remove_css_class)("on")
         self.mode_btn.set_label("● VIDEO" if video else "◉ PHOTO")
         self.mode_btn.set_sensitive(not self.rec)
@@ -746,7 +796,7 @@ class Window(Adw.ApplicationWindow):
         if tex:
             self.freeze.set_paintable(tex.get_current_image())
             self.freeze.set_visible(True)
-        self.say("HOLD STILL · HDR" if self.conf["hdr"] and lens["key"] == "main" else "HOLD STILL · 12 MP")
+        self.say("HOLD STILL · HDR" if self.conf["hdr"] and lens["key"] == "main" else "HOLD STILL · " + lens.get("mp", "12 MP"))
         self.stop_preview()
         if flash:
             self.led(True)
@@ -777,7 +827,7 @@ class Window(Adw.ApplicationWindow):
             GLib.idle_add(self._after_full)
             GLib.idle_add(self.say, "12 MP: camera not found")
             return
-        if lens["key"] == "main":
+        if lens["model"] in rawdev.SENSORS:          # main (10-22) + ultrawide (10-25)
             return self._grab_raw(lens, held, theme, flash)
         env = dict(os.environ, LIBCAMERA_SOFTISP_MODE="cpu")
         cmd = ["cam", "-c", self.cams[lens["path"]], "-s",
@@ -805,10 +855,11 @@ class Window(Adw.ApplicationWindow):
         self._save(rgb, lens, held, theme)
 
     def _grab_raw(self, lens, held, theme, flash):
-        """Main lens: raw frames developed by rawdev (the soft ISP's white balance is off, 10-22)."""
-        hdr = bool(self.conf.get("hdr"))
+        """Rear lenses: raw frames developed by rawdev with Nothing's colour tuning (HDR: main only)."""
+        hdr = bool(self.conf.get("hdr")) and lens["key"] == "main"
         try:
-            frames = rawdev.capture(self.cams[lens["path"]], EV_FILE, self.ev.get_value(), hdr=hdr)
+            frames = rawdev.capture(self.cams[lens["path"]], EV_FILE, self.ev.get_value(), hdr=hdr,
+                                    model=lens["model"])
         except Exception as e:
             log("raw capture failed:", e)
             frames = []
@@ -820,7 +871,7 @@ class Window(Adw.ApplicationWindow):
             return
         GLib.timeout_add(800, lambda: (self.say("DEVELOPING…"), False)[1])
         try:
-            rgb = rawdev.develop(frames)
+            rgb = rawdev.develop(frames, model=lens["model"])
         except Exception as e:
             log("develop failed:", e)
             GLib.idle_add(self.say, "develop failed")
@@ -849,7 +900,7 @@ class Window(Adw.ApplicationWindow):
             return
         lens = self.lens()
         held = self.accel.orientation()
-        ccw = (lens["rot"] + HELD_CCW.get(held, 0)) % 360
+        ccw = held_ccw(lens, held)
         w, h = (VID_SHORT, VID_LONG) if ccw in (90, 270) else (VID_LONG, VID_SHORT)
         os.makedirs(VID_DIR, exist_ok=True)
         name = datetime.datetime.now().strftime("VID_%Y%m%d_%H%M%S")
@@ -975,7 +1026,15 @@ class Window(Adw.ApplicationWindow):
         tex = self.picture.get_paintable()
         img = tex.get_current_image() if tex else None
         if img:                                    # thumbnail = the last preview frame
-            self.thumb_pic.set_paintable(img)
+            # shrunk to thumb size: a full-size frame's natural size blew the button up
+            w, h = img.get_intrinsic_width(), img.get_intrinsic_height()
+            k = 160 / max(w, h, 1)
+            tw, th = max(1, round(w * k)), max(1, round(h * k))
+            snap = Gtk.Snapshot()
+            img.snapshot(snap, tw, th)
+            small = snap.to_paintable(Graphene.Size().init(tw, th))
+            if small:
+                self.thumb_pic.set_paintable(small)
         if rec.get("then"):
             rec["then"]()
         return False
@@ -1000,7 +1059,7 @@ class Window(Adw.ApplicationWindow):
         try:
             if theme:
                 rgb = film.develop(rgb, theme)
-            ccw = (lens["rot"] + HELD_CCW.get(held, 0)) % 360
+            ccw = held_ccw(lens, held)
             rgb = np.rot90(rgb, k=ccw // 90)
             rgb = np.ascontiguousarray(rgb)
             if theme:
@@ -1035,12 +1094,110 @@ class Window(Adw.ApplicationWindow):
         self.last_photo = path
         return False
 
+    # ---------- QR ----------
+    def _qr_tick(self):
+        if self.qr_code and time.time() - self.qr_seen > QR_KEEP and not self.qr_pill.get_focus_child():
+            self._qr_hide()
+        if (self.qr_scanning or self.busy or self.rec or not self.grab or self.countdown
+                or self.conf["mode"] != "photo" or not self.is_active()):
+            return True
+        self.qr_scanning = True
+        self.qr_n += 1
+        threading.Thread(target=self._qr_scan, args=(self.qr_n % 3 == 0,), daemon=True).start()
+        return True
+
+    def _qr_scan(self, full):
+        found = []
+        try:
+            a = self._frame()
+            if a is not None:
+                # green channel = luma enough; half size most of the time (~40 ms), full size every
+                # 3rd scan for small / far codes
+                g = a[:, :, 1] if full else a[::2, ::2, 1]
+                found = qr.scan(np.ascontiguousarray(g))
+        except Exception as e:     # noqa: BLE001 - never take the camera down
+            log("qr:", repr(e))
+        GLib.idle_add(self._qr_found, found)
+
+    def _qr_found(self, found):
+        self.qr_scanning = False
+        if not found:
+            if self.qr_dismissed and time.time() - self.qr_seen > QR_KEEP:
+                self.qr_dismissed = None          # it left the picture: may show again later
+            return False
+        text = found[0]
+        self.qr_seen = time.time()
+        if text == self.qr_dismissed or (self.qr_code and self.qr_code["raw"] == text):
+            return False
+        code = qr.parse(text)
+        code["raw"] = text
+        self.qr_code = code
+        self.qr_text.set_label(f"{QR_ICON[code['kind']]}  {code['title']}")
+        act = QR_ACTION.get(code["kind"])
+        self.qr_act.set_visible(bool(act))
+        self.qr_act.set_label(act or "")
+        self.qr_pill.set_visible(True)
+        log("qr:", code["kind"], code["title"])
+        return False
+
+    def _qr_hide(self, dismiss=False):
+        if dismiss and self.qr_code:
+            self.qr_dismissed = self.qr_code["raw"]
+        self.qr_code = None
+        self.qr_pill.set_visible(False)
+
+    def _qr_copy(self):
+        if not self.qr_code:
+            return
+        c = self.qr_code
+        self.get_clipboard().set(c.get("password") if c["kind"] == "wifi" and c.get("password") else c["raw"])
+        self._qr_flash("COPIED" if c["kind"] != "wifi" else "PASSWORD COPIED")
+
+    def _qr_flash(self, text, secs=2):
+        self.say(text)
+        GLib.timeout_add_seconds(secs, lambda: (self.status.get_label() == text and self.say(None), False)[1])
+
+    def _qr_action(self):
+        c = self.qr_code
+        if not c:
+            return
+        if c["kind"] == "wifi":
+            self._qr_wifi(c)
+            return
+        try:
+            Gio.AppInfo.launch_default_for_uri(c["uri"], None)
+            self._qr_hide(dismiss=True)
+        except GLib.Error as e:
+            log("qr open:", e.message)
+            self.get_clipboard().set(c["raw"])
+            self._qr_flash("NO APP FOR THIS · COPIED", 3)
+
+    def _qr_wifi(self, c):
+        self._qr_flash(f"JOINING {c['ssid']}…", 20)
+        cmd = ["nmcli", "device", "wifi", "connect", c["ssid"]]
+        if c["password"] and c["security"] not in ("", "NOPASS"):
+            cmd += ["password", c["password"]]
+        if c["hidden"]:
+            cmd += ["hidden", "yes"]
+
+        def run():
+            try:
+                r = subprocess.run(cmd, capture_output=True, text=True, timeout=45)
+                ok, msg = r.returncode == 0, (r.stderr or r.stdout).strip()
+            except (OSError, subprocess.TimeoutExpired) as e:
+                ok, msg = False, str(e)
+            log("qr wifi:", c["ssid"], "ok" if ok else msg)
+            GLib.idle_add(lambda: (self._qr_flash(f"CONNECTED · {c['ssid']}" if ok else "WI-FI FAILED", 4),
+                                   ok and self._qr_hide(dismiss=True), False)[-1])
+        threading.Thread(target=run, daemon=True).start()
+
     def open_gallery(self):
         subprocess.Popen(["gtk-launch", "dev.notareal.Gallery"], stdout=subprocess.DEVNULL,
                          stderr=subprocess.DEVNULL)
 
     # ---------- lifecycle ----------
     def _on_active(self, *_):
+        self._claim_keys(self.is_active())
         # release the sensor (and the torch) when the app goes to the background
         if self.is_active():
             if not self.pipeline and not self.busy:
@@ -1048,6 +1205,20 @@ class Window(Adw.ApplicationWindow):
                 self._apply_flash()
         elif not self.busy and not self.rec:
             GLib.timeout_add(1500, self._pause_if_inactive)
+
+    def _claim_keys(self, on):
+        try:
+            if on:
+                write_atomic(KEYS_FILE, str(os.getpid()))
+            else:
+                os.unlink(KEYS_FILE)
+        except OSError:
+            pass
+
+    def _focus_centre(self):
+        """Volume down: tap-to-focus on the middle of the frame."""
+        if self.picture.get_mapped():
+            self._preview_tap(None, 1, self.picture.get_width() / 2, self.picture.get_height() / 2)
 
     def _pause_if_inactive(self):
         if not self.is_active() and not self.busy and not self.rec:
@@ -1060,6 +1231,7 @@ class Window(Adw.ApplicationWindow):
             self.rec["then"] = self.close
             self.stop_record()
             return True
+        self._claim_keys(False)
         self.stop_preview()
         self.led(False)
         write_atomic(EV_FILE, "0")

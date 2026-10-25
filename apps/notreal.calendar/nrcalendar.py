@@ -9,6 +9,7 @@ Data via Evolution (cal.py); Evolution syncs our changes back to Google / Outloo
 import datetime
 import json
 import os
+import re
 import subprocess
 import sys
 import threading
@@ -55,6 +56,25 @@ def label(text="", css=None, xalign=0.0, ellipsize=True, wrap=False):
         for c in css.split():
             lb.add_css_class(c)
     return lb
+
+
+URL_RE = re.compile(r"https?://[^\s<>\"']+")
+
+
+def linkify(text):
+    """Plain text -> Pango markup with tappable links."""
+    out, last = [], 0
+    for m in URL_RE.finditer(text):
+        url = m.group(0).rstrip(".,)")
+        out.append(GLib.markup_escape_text(text[last:m.start()]))
+        out.append(f'<a href="{GLib.markup_escape_text(url)}">{GLib.markup_escape_text(url)}</a>')
+        last = m.start() + len(url)
+    out.append(GLib.markup_escape_text(text[last:]))
+    return "".join(out)
+
+
+def open_uri(uri):
+    Gio.AppInfo.launch_default_for_uri(uri, None)
 
 
 def dot(color, size=10):
@@ -232,6 +252,10 @@ class MainPage(Adw.NavigationPage):
         sub = when_text(ev) + (f" · {ev['location']}" if ev["location"] else "")
         col.append(label(sub, "ev-sub"))
         h.append(col)
+        if ev.get("meet"):
+            join = Gtk.Button(label="JOIN", css_classes=["chip", "join"], valign=Gtk.Align.CENTER)
+            join.connect("clicked", lambda *_: open_uri(ev["meet"]))
+            h.append(join)
         b.set_child(h)
         b.connect("clicked", lambda *_: self.win.open_event(ev))
         return b
@@ -394,14 +418,24 @@ class EventPage(Adw.NavigationPage):
             r.append(dot(c.color, 12))
             r.append(label(f"{c.name} · {c.service}", "ev-cal"))
             box.append(r)
+        if ev.get("meet"):
+            join = Gtk.Button(label="JOIN MEETING", css_classes=["step-btn", "suggested"], halign=Gtk.Align.START)
+            join.connect("clicked", lambda *_: open_uri(ev["meet"]))
+            box.append(join)
+            box.append(label(ev["meet"], "ev-sub"))
         box.append(label("REMIND ME", "d-kind"))
         box.append(label(", ".join(remind_text(m, ev["all_day"]) for m in ev["remind"]) or "no reminder", "d-value"))
         if ev["location"]:
             box.append(label("WHERE", "d-kind"))
-            box.append(label(ev["location"], "d-value", wrap=True))
+            loc = label("", "d-value", wrap=True)
+            loc.set_markup(linkify(ev["location"]))
+            box.append(loc)
         if ev["notes"]:
             box.append(label("NOTES", "d-kind"))
-            box.append(label(ev["notes"], "d-notes", wrap=True))
+            notes = label("", "d-notes", wrap=True)
+            notes.set_markup(linkify(ev["notes"]))
+            notes.set_selectable(True)
+            box.append(notes)
         if not writable:
             box.append(label("read-only calendar", "empty"))
         tv.set_content(Gtk.ScrolledWindow(child=box, hscrollbar_policy=Gtk.PolicyType.NEVER))

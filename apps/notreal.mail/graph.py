@@ -163,6 +163,16 @@ class Graph:
     def list_sent(self, limit=gmail.LIST_LIMIT):
         return self.list_folder("sent", limit)
 
+    def search(self, query, limit=50):
+        """Microsoft Search over every folder (10-24); $search can't be combined with $orderby."""
+        q = query.replace('"', "")
+        d = self._req("GET", "/messages", params={
+            "$search": '"%s"' % q, "$top": str(limit), "$select": SELECT,
+            "$expand": "singleValueExtendedProperties($filter=id eq '%s')" % SIZE_PROP})
+        msgs = [self._msg(x, "search") for x in d.get("value", [])]
+        msgs.sort(key=lambda m: m.get("date", 0), reverse=True)
+        return msgs
+
     def get_raw(self, msg):
         raw = gmail.cached_raw(msg["msgid"])
         if raw:

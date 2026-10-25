@@ -63,6 +63,16 @@ TAP_BAND = 0.035                    # tap = OCR a band this share of the screen 
 EV_SYN, EV_KEY, KEY_VOLUMEDOWN = 0, 1, 114
 EVENT = struct.Struct("qqHHi")
 EVIOCGRAB = 0x40044590
+
+
+def camera_key(sig):
+    """notarealCamera in front (pid in nrcamera-keys): give it the key (10 shutter, 12 focus)."""
+    try:
+        with open(os.path.join(os.environ.get("XDG_RUNTIME_DIR", "/tmp"), "nrcamera-keys")) as f:
+            os.kill(int(f.read()), sig)
+        return True
+    except (OSError, ValueError):
+        return False
 UI_SET_EVBIT, UI_SET_KEYBIT = 0x40045564, 0x40045565
 UI_DEV_SETUP, UI_DEV_CREATE = 0x405C5503, 0x5501
 
@@ -653,6 +663,44 @@ class Circle:
 
 # --- volume-down key -----------------------------------------------------------------------
 
+EVIOCGKEY = 0x80604518   # EVIOCGKEY(96): pressed-key bitmap, readable even while crtd grabs the device
+KEY_POWER = 116
+SHOT = os.path.expanduser("~/crt/nrshot")   # power + volume-down screenshot (10-22)
+SHOT_STAMP = os.path.join(os.environ.get("XDG_RUNTIME_DIR", "/run/user/%d" % os.getuid()), "nrshot.stamp")
+
+
+def power_held():
+    """Is the power key (pmic_pwrkey, grabbed by crtd) down right now?"""
+    for d in os.listdir("/sys/class/input"):
+        try:
+            with open("/sys/class/input/%s/device/name" % d) as f:
+                if not d.startswith("event") or f.read().strip() != "pmic_pwrkey":
+                    continue
+            fd = os.open("/dev/input/" + d, os.O_RDONLY | os.O_NONBLOCK)
+            try:
+                bits = fcntl.ioctl(fd, EVIOCGKEY, bytes(96))
+            finally:
+                os.close(fd)
+            return bool(bits[KEY_POWER // 8] & (1 << (KEY_POWER % 8)))
+        except OSError:
+            continue
+    return False
+
+
+def mark_shot():
+    """Touch the stamp before nrshot starts, so the other daemon sees it on a quick release."""
+    with open(SHOT_STAMP, "a"):
+        os.utime(SHOT_STAMP)
+
+
+def shot_since(t):
+    """Did nrshot run (from us or crtd) since wall time t?"""
+    try:
+        return os.stat(SHOT_STAMP).st_mtime >= int(t)
+    except OSError:
+        return False
+
+
 class Keys:
     def __init__(self, on_hold):
         self.on_hold = on_hold
@@ -692,16 +740,32 @@ class Keys:
                 if val == 1:
                     if self.hold_timer:
                         GLib.source_remove(self.hold_timer)
+                        self.hold_timer = 0
+                    self.press_wall = time.time()
+                    if power_held():   # power first, then volume-down: screenshot
+                        log("screenshot")
+                        mark_shot()
+                        try:   # 10-24: a raise here would drop the volume-down watch for good
+                            subprocess.Popen([SHOT])
+                        except OSError as e:
+                            log("nrshot failed:", repr(e))
+                        continue
+                    if camera_key(12):   # camera: focus on the centre, no volume change / circle
+                        continue
                     self.hold_timer = GLib.timeout_add(HOLD_MS, self.long_press)
                 elif val == 0 and self.hold_timer:   # short press: normal volume down
                     GLib.source_remove(self.hold_timer)
                     self.hold_timer = 0
+                    if shot_since(self.press_wall):   # it was a screenshot combo
+                        continue
                     self.emit(1)
                     self.emit(0)
         return GLib.SOURCE_CONTINUE
 
     def long_press(self):
         self.hold_timer = 0
+        if power_held() or shot_since(self.press_wall):
+            return False   # power + volume-down screenshot, not circle
         self.on_hold()
         return False
 

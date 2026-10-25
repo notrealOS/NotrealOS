@@ -1,0 +1,24 @@
+/* notreal.check: the doctor's card, coloured by the active notareal theme (--nr-*) */
+.ck-page { padding: 18px; }
+.ck-title { font-family: var(--nr-font-code); font-size: 12pt; letter-spacing: 3px; color: var(--nr-fg-bright); }
+.ck-hero { font-family: var(--nr-font-text); font-weight: 300; font-size: 30pt; color: var(--nr-fg-bright); }
+.ck-hero.ok { color: var(--nr-mint); }
+.ck-hero.meh { color: var(--nr-fg-bright); }
+.ck-hero.bad { color: var(--nr-orange); }
+.ck-sub { font-family: var(--nr-font-code); font-size: 9pt; letter-spacing: 1px; color: alpha(var(--nr-fg), 0.7); }
+button.ck-btn { font-family: var(--nr-font-code); font-weight: 800; letter-spacing: 2px; font-size: 9pt;
+  border-radius: 999px; padding: 10px 16px; background: alpha(var(--nr-fg), 0.10); color: var(--nr-fg-bright); }
+button.ck-btn.primary { background: var(--nr-primary); color: var(--nr-bg); }
+.square button.ck-btn { border-radius: 0; }
+.ck-head { font-family: var(--nr-font-code); letter-spacing: 2px; font-size: 9pt; color: alpha(var(--nr-fg), 0.7); margin-top: 6px; }
+.ck-head.bad { color: var(--nr-orange); }
+.ck-head.fixed { color: var(--nr-mint); }
+.ck-card { background: var(--nr-surface); border-radius: 24px; padding: 14px 18px; }
+.square .ck-card { border-radius: 0; }
+.ck-card.bad { box-shadow: inset 4px 0 0 var(--nr-orange); }
+.ck-card.fixed { box-shadow: inset 4px 0 0 var(--nr-mint); }
+.ck-card.ask { box-shadow: inset 4px 0 0 var(--nr-primary); }
+.ck-name { font-family: var(--nr-font-code); font-size: 10.5pt; color: var(--nr-fg-bright); }
+.ck-why { font-size: 10.5pt; color: var(--nr-fg); }
+.ck-todo { font-size: 10.5pt; color: var(--nr-fg-bright); font-weight: 600; }
+.ck-foot { font-family: var(--nr-font-code); font-size: 7.5pt; letter-spacing: 1px; color: alpha(var(--nr-fg), 0.5); margin-top: 10px; }

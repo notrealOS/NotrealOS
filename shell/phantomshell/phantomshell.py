@@ -171,6 +171,20 @@ def once(func):
     return run
 
 
+def focus_with_osk(entry):
+    """Focus a text field and ask for the on-screen keyboard. Since phoc 0.58 (text-input v2,
+    GTK 4.24) focus alone no longer activates the keyboard: only show_input_panel does, which
+    GTK sends on a tap. GtkText hands its IM context to its key controller, so fetch it there."""
+    entry.grab_focus_without_selecting()
+    text = entry.get_delegate() or entry
+    ctrls = text.observe_controllers()
+    for i in range(ctrls.get_n_items()):
+        c = ctrls.get_item(i)
+        if isinstance(c, Gtk.EventControllerKey) and c.get_im_context():
+            c.get_im_context().activate_osk(None)
+            return
+
+
 def launch_context():
     ctx = Gdk.Display.get_default().get_app_launch_context()
     ctx.unsetenv("LD_PRELOAD")
@@ -1113,7 +1127,7 @@ class PhantomShell(Gtk.Application):
             LayerShell.set_keyboard_mode(win, LayerShell.KeyboardMode.EXCLUSIVE)
             if self.stack.get_visible_child_name() == "search":
                 self.refresh()
-                GLib.idle_add(once(self.entry.grab_focus_without_selecting))
+                GLib.idle_add(once(lambda: focus_with_osk(self.entry)))
             self.bg.start()
             self._play_appear()
         else:
@@ -1153,7 +1167,7 @@ class PhantomShell(Gtk.Application):
         self.app_search.set_text("")
         self.stack.set_visible_child_name("apps")
         self._play_appear()
-        self.app_search.grab_focus()
+        focus_with_osk(self.app_search)
 
     def _on_key(self, ctrl, keyval, keycode, state):
         if keyval == Gdk.KEY_Escape:

@@ -1,6 +1,11 @@
 /* notarealEdit: follows the active notareal theme */
-togglebutton.tool-tab { font-family: var(--nr-font-code); font-weight: 800; letter-spacing: 1px; padding: 8px 14px;
+button.tool-tab { font-family: var(--nr-font-code); font-weight: 800; letter-spacing: 1px; padding: 8px 14px;
   border-radius: 999px; background: alpha(var(--nr-fg), 0.08); }
-togglebutton.tool-tab:checked { background: var(--nr-primary); color: var(--nr-bg); }
+button.tool-tab:checked { background: var(--nr-primary); color: var(--nr-bg); }
 button.chip.save { background: var(--nr-primary); color: var(--nr-bg); }
 .tool-label { font-family: var(--nr-font-code); font-size: 9pt; letter-spacing: 2px; color: var(--nr-accent); }
+button.swatch { min-width: 26px; min-height: 26px; padding: 0; border-radius: 999px; }
+button.swatch { opacity: 0.35; } button.swatch:checked { opacity: 1; }
+button.sw0 { background: #ff3b30; } button.sw1 { background: #ffcc00; }
+button.sw2 { background: #ffffff; } button.sw3 { background: #111111; }
+button.sw4 { background: #2f80ff; } button.sw5 { background: #34c759; }

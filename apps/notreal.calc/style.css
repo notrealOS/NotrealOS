@@ -1,0 +1,26 @@
+/* notreal.calc: big thumb keys; colours come from the shared theme (--nr-*) */
+.nrcalc .hist { background: none; }
+button.hist-row { padding: 4px 20px; border-radius: 12px; margin: 0 8px; }
+.hist-expr { font-family: var(--nr-font-code); font-size: 11pt; color: alpha(var(--nr-fg), 0.55); }
+.hist-res { font-family: var(--nr-font-code); font-size: 13pt; color: alpha(var(--nr-fg-bright), 0.8); }
+
+.display { padding: 10px 22px 14px 22px; }
+.expr { font-family: var(--nr-font-text); font-weight: 300; font-size: 40pt; color: var(--nr-fg-bright); }
+.expr.long { font-size: 28pt; }
+.expr.longer { font-size: 20pt; }
+.res { font-family: var(--nr-font-code); font-size: 18pt; color: var(--nr-primary); min-height: 32px; }
+.res.err { color: var(--nr-orange); }
+
+.pad { padding: 4px 12px 18px 12px; }
+.fx-pad { padding: 4px 12px 4px 12px; }
+button.ck { min-height: 64px; min-width: 0; padding: 0; border-radius: 999px; font-family: var(--nr-font-text); font-size: 20pt;
+  font-weight: 400; background: var(--nr-surface); color: var(--nr-fg-bright); box-shadow: none; border: none; }
+button.ck.fn { color: var(--nr-accent-light); font-size: 17pt; }
+button.ck.op { color: var(--nr-primary); background: alpha(var(--nr-primary), 0.14); font-size: 24pt; }
+button.ck.eq { color: var(--nr-bg); background: var(--nr-primary); font-size: 26pt; font-weight: 600; }
+button.ck.fx { min-height: 44px; font-family: var(--nr-font-code); font-size: 12pt; color: var(--nr-fg);
+  background: alpha(var(--nr-surface), 0.6); }
+button.ck:active { filter: brightness(1.25); }
+button.fx-toggle { font-family: var(--nr-font-code); font-weight: 800; }
+button.fx-toggle:checked { color: var(--nr-primary); }
+.square button.ck, .square button.hist-row { border-radius: 0; }

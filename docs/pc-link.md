@@ -1,7 +1,7 @@
 # How the phone and the PC work together
 
 The phone does everything it can on its own. The heavy work (a 35-billion-parameter language
-model, natural speech, chat bridges, a music library, a Reddit proxy, backups) runs on a home PC.
+model, natural speech, chat bridges, a music library, backups) runs on a home PC.
 The two are joined by [Tailscale](https://tailscale.com), a private network that works the same
 over Wi-Fi, mobile data or abroad.
 
@@ -16,7 +16,6 @@ flowchart LR
         alarm["alarms and reminders"]
         chat["notreal.chat"]
         player["notreal.player"]
-        feed["notreal.feed"]
         tube["notreal.tube"]
         backup["nightly backup"]
     end
@@ -33,8 +32,6 @@ flowchart LR
         bridges["mautrix bridges<br/>WhatsApp, Messenger,<br/>Instagram, Google Voice"]
         navidrome["Navidrome :4533<br/>music library"]
         anim["spin-anim :4535<br/>animated covers"]
-        redlib["Redlib :8095"]
-        api["feed api :8096"]
         hub["video hub :8099<br/>yt-dlp + ffmpeg"]
         searx["SearXNG"]
         storage[("restic repo<br/>on a data drive")]
@@ -44,7 +41,6 @@ flowchart LR
     brain --> llm & whisper & tts
     chat -->|HTTPS| ts --> synapse --> bridges
     player --> ts --> navidrome & anim
-    feed --> ts --> api --> redlib
     tube --> ts --> hub --> searx
     backup -->|sftp over ssh| ts --> storage
 ```
@@ -59,7 +55,6 @@ flowchart LR
 | notreal.chat | Synapse + mautrix bridges | 443 → 8008 (HTTPS via `tailscale serve`) | Your own Matrix server; WhatsApp, Messenger, Instagram and Google Voice appear as Matrix rooms |
 | notreal.player | Navidrome | 4533 | Music library (Subsonic API), bit-perfect streaming |
 | notreal.player | `spin_anim.py` | 4535 | Turns animated `cover.webp` album art into small looping MP4s the phone can decode cheaply |
-| notreal.feed | Redlib + `api.py` | 8095, 8096 | Redlib reads Reddit; `api.py` turns its pages into compact JSON and resizes images for the phone |
 | notreal.tube | `hub.py` + SearXNG | 8099 | Feed from channel RSS, search, streams remuxed to one MP4 by ffmpeg; on mobile data the phone runs the same hub itself |
 | nightly backup | sshd | 22 | `restic` over sftp to a big data drive, only while charging on Wi-Fi |
 
@@ -92,7 +87,7 @@ on the phone, so they still play offline.
 4. **Start the PC services you want.** See [`pc/README.md`](../pc/README.md).
 5. **Expose them to the tailnet only**:
    ```sh
-   for p in 4533 4535 8095 8096; do tailscale serve --bg --tcp $p tcp://127.0.0.1:$p; done
+   for p in 4533 4535; do tailscale serve --bg --tcp $p tcp://127.0.0.1:$p; done
    tailscale serve --bg https+insecure://127.0.0.1:8008   # Matrix on https://<pc>.<tailnet>.ts.net
    ```
    `nrbrain` is the exception: it binds to the PC's Tailscale IP itself (`NRBRAIN_HOST` in its

@@ -107,6 +107,8 @@ LLM_PORT = 8771
 # 10-16: the PC (RTX 5060 Ti, Qwen3.6 35B-A3B via ~/llm/nrbrain.py on the PC) answers first when
 # reachable over Tailscale; the phone's own model is the fallback (PC off, away, error).
 PC_BRAIN = "http://%s:8097" % pc("host", "localhost")
+DOCTOR_ASK = os.path.expanduser("~/doctor/ask.py")       # "what's wrong with my phone" (10-24)
+DOCTOR_CARD = os.path.expanduser("~/hub/nrsystem")      # 10-24: CHECK tab of notreal.system
 PC_RETRY_S = 60      # after a failure, don't wait on the PC again for this long
 LLM_IDLE_S = 300
 THREADS = "6"        # llama: 8 cores; leave some for the UI
@@ -121,11 +123,25 @@ GLYPH = "/sys/class/leds/glyph:bar-%d/brightness"
 EV_SYN, EV_KEY, KEY_VOLUMEUP = 0, 1, 115
 EVENT = struct.Struct("qqHHi")
 EVIOCGRAB = 0x40044590
+
+
+def camera_key(sig):
+    """notarealCamera in front (pid in nrcamera-keys): give it the key (10 shutter, 12 focus)."""
+    try:
+        with open(os.path.join(os.environ.get("XDG_RUNTIME_DIR", "/tmp"), "nrcamera-keys")) as f:
+            os.kill(int(f.read()), sig)
+        return True
+    except (OSError, ValueError):
+        return False
 UI_SET_EVBIT, UI_SET_KEYBIT = 0x40045564, 0x40045565
 UI_DEV_SETUP, UI_DEV_CREATE = 0x405C5503, 0x5501
 
 # Clear-cut commands skip Qwen (~10 s): (pattern on the lowercased, unpunctuated text, type, target group)
 FAST = [
+    # 10-24: phone health -> the doctor asks the PC (~/doctor/ask.py), answer spoken + card opened
+    (r"(what'?s|what is) (wrong|up|going on) with (my |the |this )?(phone|battery)|why is (my |the |this )?(phone|battery) .+"
+     r"|is (my |the |this )?phone (ok|okay|alright|all right|fine|healthy)|(run a |do a )?(phone|system|health) (check|status|checkup)"
+     r"|check (my |the |this )?phone", "doctor", None),
     (r"(pause|stop)( the)?( music| song)?", "pause", None),
     (r"(resume|continue|unpause)( the)?( music| song)?", "resume", None),
     (r"(next|skip)( the| this)?( song| track)?|play the next (song|track)", "next", None),
@@ -690,6 +706,9 @@ class Voiced:
         return GLib.SOURCE_CONTINUE
 
     def press(self):
+        if camera_key(10):          # camera shutter, no volume change / listening
+            self.cam_press = True
+            return
         if self.hold_timer:
             GLib.source_remove(self.hold_timer)
         self.hold_timer = GLib.timeout_add(HOLD_MS, self.long_press)
@@ -697,6 +716,9 @@ class Voiced:
             self.start_recording()  # from the press, so nothing said early is lost
 
     def release(self):
+        if getattr(self, "cam_press", False):
+            self.cam_press = False
+            return
         if self.hold_timer:  # short press: normal volume up, drop the recording
             GLib.source_remove(self.hold_timer)
             self.hold_timer = 0
@@ -853,6 +875,10 @@ class Voiced:
             if not alive():
                 log("dropped (cancelled):", r.get("type"))
                 return
+            if r.get("type") == "doctor":
+                self.diagnose(text, alive)
+                log("done in %.1fs" % (time.time() - t0))
+                return
             if r.get("type") == "question":
                 self.answer(text, alive)
                 log("done in %.1fs" % (time.time() - t0))
@@ -885,6 +911,29 @@ class Voiced:
         if self.thinking:
             self.thinking.start() if on else self.thinking.stop()
         return False
+
+    def diagnose(self, question, alive=lambda: True):
+        """10-24: the doctor's snapshot -> Qwen on the PC; say the gist, open the card for the rest."""
+        GLib.idle_add(notify, "Checking the phone…", question, 8000)
+        try:
+            out = subprocess.run(["python3", DOCTOR_ASK, question], capture_output=True, text=True, timeout=240).stdout
+            r = json.loads(out)
+        except Exception as e:  # noqa: BLE001
+            r = {"error": "The phone check failed (%s)." % e.__class__.__name__}
+        if not alive():
+            return
+        GLib.idle_add(self.think, False)
+        if r.get("error"):
+            text = r["error"]
+        else:
+            text = r.get("summary", "")
+            if r.get("steps"):
+                text += " " + r["steps"][0]
+        GLib.idle_add(notify, "Phone check", text, 20000)
+        subprocess.Popen([DOCTOR_CARD, "--page", "check"], stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL,
+                         stderr=subprocess.DEVNULL, start_new_session=True)
+        buzz("message-new-instant")
+        speak(text, alive)
 
     def answer(self, question, alive=lambda: True):
         if self.big is not self.llm:
@@ -968,7 +1017,16 @@ class Voiced:
                 actions.maps("--search" if kind == "find" else "--navigate", target)
                 GLib.idle_add(notify, ("Searching " if kind == "find" else "Directions to ") + target, "", 2500)
             elif kind == "play":
-                if target:
+                v = actions.vibe(target) if target else None
+                n = 0
+                if v:                  # "play a bass heavy workout playlist": AudioMuse on the PC (10-24)
+                    try:
+                        n = actions.play_vibe(v, PC_BRAIN)
+                    except Exception as e:  # noqa: BLE001 - PC off: fall back to the library search
+                        log("vibe failed:", repr(e))
+                if n:
+                    GLib.idle_add(notify, "✦ " + v, f"{n} songs that sound like it", 3000)
+                elif target:
                     actions.play_query(target)
                     GLib.idle_add(notify, "Playing " + target, "", 2500)
                 else:

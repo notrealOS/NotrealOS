@@ -46,6 +46,14 @@ os.environ.pop("LD_PRELOAD", None)
 HERE = os.path.dirname(os.path.abspath(__file__))
 TOPLEVEL_WATCH = os.path.join(HERE, "toplevel-watch")
 DOCTOR = os.path.expanduser("~/doctor/nrdoctor.py")   # SYS CHECK under the face
+CHECK_CARD = os.path.expanduser("~/hub/nrsystem")       # 10-24: the result card, now the CHECK tab of notreal.system
+# 10-24: shortcut chips under the music controls: (name, toggle command, state dir with an "on" flag)
+MODES = (("DAP", [os.path.expanduser("~/dap/nrdap"), "toggle"], os.path.expanduser("~/.local/state/nrdap")),
+         ("SAVER", [os.path.expanduser("~/saver/nrsaver"), "toggle"], os.path.expanduser("~/.local/state/nrsaver")))
+# 10-24: OUTPUT chip = DAC / SPEAKER choice (~/nrvolume/nroutput.py)
+NROUTPUT = os.path.expanduser("~/nrvolume/nroutput.py")
+NROUTPUT_STATE = os.path.expanduser("~/.local/state/nroutput")
+MODE_BUSY_S = 60                    # give up on the "…" if a toggle never flips the flag
 POWER_MENU_MAX_S = 60
 CIRCLE_MAX_S = 600                  # circled forgot to say it closed (crash): show again after this
 TOUCH_DEVICE = "/dev/input/by-path/platform-a94000.spi-event"
@@ -126,6 +134,12 @@ button.chip { background: var(--nr-mint); color: var(--nr-bg); border: none; bor
 button.chip-main { background: var(--nr-pink); box-shadow: 0 3px 0 alpha(var(--nr-pink), 0.6); }
 button.chip:active { box-shadow: 0 1px 0 alpha(var(--nr-mint), 0.6); margin-top: 2px; }
 button.flat-row { background: none; border: none; box-shadow: none; padding: 0; }
+button.mode { background: alpha(var(--nr-fg), 0.08); color: var(--nr-fg); border: none; border-radius: 4px;
+              box-shadow: none; padding: 4px 0; min-height: 0; font-family: var(--nr-font-code); }
+button.mode.on { background: var(--nr-mint); color: var(--nr-bg); box-shadow: 0 3px 0 alpha(var(--nr-mint), 0.6); }
+button.mode:disabled { opacity: 0.35; }
+.mode-name { font-size: 9pt; font-weight: bold; letter-spacing: 2px; }
+.mode-state { font-size: 7pt; letter-spacing: 1px; opacity: 0.8; }
 @keyframes appear { from { opacity: 0; transform: translate(0, -16px); } to { opacity: 1; transform: none; } }
 .appear { animation: appear 220ms ease-out; }
 """
@@ -384,7 +398,7 @@ class OverviewWidget(Gtk.Application):
         ghost = Gtk.Box(margin_start=10, margin_top=10)
         ghost.add_css_class("ghost")
         outer.set_child(ghost)
-        frame = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, margin_end=10, margin_bottom=10)
+        frame = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, margin_bottom=10)   # right margin = left (10-24)
         frame.add_css_class("retro")
         outer.add_overlay(frame)
         outer.set_measure_overlay(frame, True)
@@ -470,9 +484,117 @@ class OverviewWidget(Gtk.Application):
         lists_btn.connect("clicked", lambda *a: self._phantom("Summon"))
         self.lists = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=2)
         lists_btn.set_child(self.lists)
-        body.append(lists_btn)
+        lists_btn.set_hexpand(True)
+        bottom = Gtk.Box(spacing=12)
+        bottom.append(lists_btn)
+        bottom.append(self._mode_chips())
+        body.append(bottom)
         self._refresh_lists()
         return outer
+
+    # --- DAP / SAVER shortcuts (right column, under the music controls) ---------------------
+
+    def _mode_chips(self):
+        col = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=6, width_request=168,
+                      valign=Gtk.Align.START, halign=Gtk.Align.END)
+        box = Gtk.Box(spacing=6, homogeneous=True)
+        col.append(box)
+        self.modes = {}
+        for name, cmd, state in MODES:
+            btn = Gtk.Button()
+            btn.add_css_class("mode")
+            inner = Gtk.Box(orientation=Gtk.Orientation.VERTICAL)
+            lb = Gtk.Label(label=name)
+            lb.add_css_class("mode-name")
+            st = Gtk.Label(label="OFF")
+            st.add_css_class("mode-state")
+            inner.append(lb)
+            inner.append(st)
+            btn.set_child(inner)
+            btn.connect("clicked", lambda _b, n=name: self._toggle_mode(n))
+            os.makedirs(state, exist_ok=True)
+            mon = Gio.File.new_for_path(state).monitor_directory(Gio.FileMonitorFlags.NONE, None)
+            mon.connect("changed", lambda *_a: self._show_modes())
+            self.modes[name] = {"btn": btn, "state": st, "cmd": cmd, "flag": os.path.join(state, "on"),
+                                "mon": mon, "busy": 0}
+            box.append(btn)
+        # 10-24: SYSTEM under them opens notreal.system (check / battery / sound / glyph)
+        sysb = Gtk.Button()
+        sysb.add_css_class("mode")
+        inner = Gtk.Box(orientation=Gtk.Orientation.VERTICAL)
+        for text, css in (("SYSTEM", "mode-name"), ("OPEN", "mode-state")):
+            lb = Gtk.Label(label=text, ellipsize=3, max_width_chars=1, hexpand=True)
+            lb.add_css_class(css)
+            inner.append(lb)
+        sysb.set_child(inner)
+        sysb.connect("clicked", lambda *_: subprocess.Popen(
+            [CHECK_CARD], stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
+            start_new_session=True, env={k: v for k, v in os.environ.items() if k != "LD_PRELOAD"}))
+        # 10-24: OUTPUT (DAC / SPEAKER) left of SYSTEM
+        row2 = Gtk.Box(spacing=6, homogeneous=True)
+        outb = Gtk.Button()
+        outb.add_css_class("mode")
+        inner = Gtk.Box(orientation=Gtk.Orientation.VERTICAL)
+        lb = Gtk.Label(label="OUTPUT")
+        lb.add_css_class("mode-name")
+        self.out_state = Gtk.Label(label="DAC")
+        self.out_state.add_css_class("mode-state")
+        inner.append(lb)
+        inner.append(self.out_state)
+        outb.set_child(inner)
+        outb.connect("clicked", lambda *_: self._toggle_output())
+        os.makedirs(NROUTPUT_STATE, exist_ok=True)
+        self.out_mon = Gio.File.new_for_path(NROUTPUT_STATE).monitor_directory(Gio.FileMonitorFlags.NONE, None)
+        self.out_mon.connect("changed", lambda *_a: self._show_output())
+        row2.append(outb)
+        row2.append(sysb)
+        col.append(row2)
+        self._show_output()
+        self._show_modes()
+        return col
+
+    def _show_output(self):
+        try:
+            with open(os.path.join(NROUTPUT_STATE, "prefer")) as f:
+                pref = f.read().strip()
+        except OSError:
+            pref = "dac"
+        self.out_state.set_label("SPEAKER" if pref == "speaker" else "DAC")
+
+    def _toggle_output(self):
+        subprocess.Popen([NROUTPUT, "toggle"], stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL,
+                         stderr=subprocess.DEVNULL, start_new_session=True,
+                         env={k: v for k, v in os.environ.items() if k != "LD_PRELOAD"})
+
+    def _mode_on(self, name):
+        return os.path.exists(self.modes[name]["flag"])
+
+    def _show_modes(self):
+        dap = self._mode_on("DAP")
+        for name, m in self.modes.items():
+            on = self._mode_on(name)
+            if m["busy"] and m["busy_from"] != on:     # the toggle landed
+                GLib.source_remove(m["busy"])
+                m["busy"] = 0
+            (m["btn"].add_css_class if on else m["btn"].remove_css_class)("on")
+            m["state"].set_label("…" if m["busy"] else "ON" if on else "OFF")
+            # the saver refuses while DAP mode is on (DAP already does more)
+            m["btn"].set_sensitive(not (name == "SAVER" and dap and not on))
+
+    def _toggle_mode(self, name):
+        m = self.modes[name]
+        if m["busy"]:
+            return
+        m["busy_from"] = self._mode_on(name)
+
+        def give_up():
+            m["busy"] = 0
+            self._show_modes()
+            return False
+        m["busy"] = GLib.timeout_add_seconds(MODE_BUSY_S, give_up)
+        self._show_modes()
+        subprocess.Popen(m["cmd"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, start_new_session=True,
+                         env={k: v for k, v in os.environ.items() if k != "LD_PRELOAD"})
 
     # --- theme picker (next to the temperature, left side for the left thumb) ---------------
 
@@ -574,12 +696,10 @@ class OverviewWidget(Gtk.Application):
                 self._set_sys(f"FIXED {len(res['fixed'])}", "fixed")
             else:
                 self._set_sys("ALL OK", "ok")
-            lines = ([f"fixed: {n}" for n in res["fixed"]] + [f"FAILED: {n}" for n in res["failed"]]
-                     + [f"down (needs you): {n}" for n in res["manual"]]
-                     + [f"minor: {n}" for n in res.get("minor", [])])
-            if lines:
-                subprocess.Popen(["notify-send", "-a", "System check", "System check",
-                                  "\n".join(lines)])
+            # 10-24: the card explains every item (why + what to do) and can ask the PC
+            subprocess.Popen([CHECK_CARD, "--page", "check"], stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL,
+                             stderr=subprocess.DEVNULL, start_new_session=True,
+                             env={k: v for k, v in os.environ.items() if k != "LD_PRELOAD"})
         self._doctor_reset = GLib.timeout_add_seconds(60, self._doctor_idle)
         return False
 
@@ -617,10 +737,7 @@ class OverviewWidget(Gtk.Application):
             print(time.strftime("%H:%M:%S"), f"none={self.no_window_active} locked={self.locked} drawer={self.drawer_open}"
                   f" -> show={show} (visible={self.window.get_visible()}"
                   f" size={self.window.get_width()}x{self.window.get_height()})", flush=True)
-        overview = self.no_window_active and not self.locked  # not on the lock screen: PIN needs the keyboard
-        if overview != getattr(self, "_osk_overview", None):
-            self._osk_overview = overview
-            self._osk_call("Overview", GLib.Variant("(b)", (overview,)))
+        self._sync_osk()
         if show == self.window.get_visible():
             return False
         if show:
@@ -705,6 +822,15 @@ class OverviewWidget(Gtk.Application):
             print(time.strftime("%H:%M:%S"), "circle:", up, flush=True)
         self._update_visibility()
 
+    def _sync_osk(self):
+        """Tell the swipe keyboard whether the overview is open (it then stays hidden, 10-20).
+        Not on the lock screen (the PIN needs it) and not while notarealShell is summoned over the
+        overview: its search box is focused, so the keyboard comes up at once (user, 10-22)."""
+        overview = self.no_window_active and not self.locked and not self.phantom_summoned
+        if overview != getattr(self, "_osk_overview", None):
+            self._osk_overview = overview
+            self._osk_call("Overview", GLib.Variant("(b)", (overview,)))
+
     # notarealShell is summoned over the overview (toplevel-watch says "none"), and the
     # joystick would cover its app suggestion chips: hide just the joystick meanwhile.
     def _watch_phantom_summon(self):
@@ -712,6 +838,7 @@ class OverviewWidget(Gtk.Application):
             self.phantom_summoned = params.unpack()[0]
             if DEBUG:
                 print(time.strftime("%H:%M:%S"), "phantom summoned:", self.phantom_summoned, flush=True)
+            self._sync_osk()
             if self.joy:
                 if self.phantom_summoned:
                     self.joy.hide()
@@ -869,6 +996,16 @@ class OverviewWidget(Gtk.Application):
                 GLib.Variant("(ssv)", ("mobi.phosh.Shell.DebugControl", "LogDomains",
                                        GLib.Variant("as", ["phosh-top-panel"]))),
                 None, Gio.DBusCallFlags.NONE, 2000, None)
+            try:   # 10-22: phoc's drag/layer log too, to see where a dead pull goes
+                Gio.bus_get_sync(Gio.BusType.SESSION).call_sync(
+                    "mobi.phosh.Phoc.DebugControl", "/mobi/phosh/Phoc/DebugControl",
+                    "org.freedesktop.DBus.Properties", "Set",
+                    GLib.Variant("(ssv)", ("mobi.phosh.Phoc.DebugControl", "LogDomains",
+                                           GLib.Variant("as", ["phoc-gesture-drag", "phoc-layer-shell-effects",
+                                                               "phoc-layer-shell"]))),
+                    None, Gio.DBusCallFlags.NONE, 2000, None)
+            except GLib.Error:
+                pass
             self._shade_f = open(self.PHOC_LOG, errors="replace")
             self._shade_f.seek(0, 2)
         except (GLib.Error, OSError) as e:
@@ -885,6 +1022,9 @@ class OverviewWidget(Gtk.Application):
         except OSError:
             return True
         for line in self._shade_f.readlines():
+            if "Stacked surface phosh top-panel" in line:
+                self._stack_broken()
+                continue
             if "phosh-top-panel" not in line:
                 continue
             m = re.search(r"top-panel configured: (\d+)x(\d+)", line)
@@ -910,6 +1050,19 @@ class OverviewWidget(Gtk.Application):
                               f" visible={m.group(1)}", flush=True)
                     self._update_visibility()
         return True
+
+    # phoc sometimes logs "Stacked surface phosh top-panel background and target phosh top-panel
+    # surface not in same layer" when the phone is unlocked after a wake; from then on Phosh ignores
+    # every pull (10-17, 10-22). Lock + unlock rebuilds the panel, so lock once on our own.
+    def _stack_broken(self):
+        now = time.monotonic()
+        self._stack_locks = [t for t in getattr(self, "_stack_locks", []) if now - t < 600]
+        if len(self._stack_locks) >= 2:   # no lock loop if the unlock keeps breaking it
+            print(time.strftime("%H:%M:%S"), "shade stack broken again, not locking", flush=True)
+            return
+        self._stack_locks.append(now)
+        print(time.strftime("%H:%M:%S"), "shade stack broken -> lock-session", flush=True)
+        GLib.timeout_add(1500, lambda: subprocess.Popen(["loginctl", "lock-session"]) and False)
 
     def _shade_confirm(self):
         # 2.5 s after a top-bar touch and Phosh never reported the shade open

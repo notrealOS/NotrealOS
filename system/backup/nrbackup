@@ -34,6 +34,8 @@ if ! ssh -o ConnectTimeout=10 -o BatchMode=yes "$PC" "mountpoint -q '$MNT' && te
 	status false "PC or Storage drive not available"
 	exit 1
 fi
+# a run cut off mid-way leaves its lock behind and blocks the prune (10-24); only stale locks go
+restic unlock >/dev/null 2>&1
 sudo -n /usr/local/bin/nrbackup-system || echo "WARNING: system snapshot failed (run ~/backup/install.sh?)"
 nice -n 10 restic backup --one-file-system --tag phone --exclude-caches \
 	--exclude "$HOME/.cache" \
@@ -43,6 +45,10 @@ nice -n 10 restic backup --one-file-system --tag phone --exclude-caches \
 	--exclude "$HOME/.mozilla/firefox/*/cache2" \
 	--exclude "$HOME/.config/chromium/*/Cache" --exclude "$HOME/.config/chromium/*/Code Cache" \
 	--exclude "$XDG_RUNTIME_DIR" \
+	--exclude "$HOME/.local/share/spin/audio" \
+	--exclude "$HOME/voice/models" \
+	--exclude "$HOME/.local/share/flatpak" \
+	--exclude "$HOME/snapbuild" \
 	"$HOME"
 rc=$?
 if [ $rc -ne 0 ] && [ $rc -ne 3 ]; then   # 3 = some files unreadable, snapshot still made

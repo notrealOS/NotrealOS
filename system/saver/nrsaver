@@ -1,0 +1,94 @@
+#!/bin/sh
+# nrsaver on|off|toggle|status - battery saver (10-24): like DAP mode, but the phone stays a phone.
+#   on:  CPU capped (big cores off, via DAP's sudo helper nrdap-cpu), modem 4G instead of 5G,
+#        unused Wi-Fi / Bluetooth radios off, background helpers without notifications stopped.
+#   off: everything back exactly as it was (state in ~/.local/state/nrsaver).
+# Kept running = everything that brings notifications: calls/SMS (modem + data), notreal.chat,
+# vapormaild, droid-notifyd, nrcalls, alarmd, glyphd - plus the shell, sleepd, backup, logging.
+STATE="$HOME/.local/state/nrsaver"
+LOG="$HOME/saver/nrsaver.log"
+AUTO="$HOME/.config/autostart"
+# helpers to stop: <autostart file>|<pgrep -f pattern (anchored so it can't match us)>
+DAEMONS="
+voiced.desktop|[v]oice/voiced
+circled.desktop|[c]ircle/circled
+galleryd.desktop|[g]allery/galleryd.py
+gdrive-mount.desktop|[r]clone mount
+rotated.desktop|[r]otated
+camflash.desktop|[c]amflash
+"
+BAT=/sys/class/power_supply/qcom-battmgr-bat
+WHY="${2:-}"    # "auto": switched by nrbatteryd (~/saver/autosaver.py: on at 20 %, off when plugged in)
+
+log() { echo "$(date '+%m-%d %H:%M:%S') $*" >>"$LOG"; }
+
+modem_modes() {  # "allowed|preferred" as mmcli prints them, e.g. "2g, 3g, 4g, 5g|5g"
+	mmcli -m any 2>/dev/null | sed -n 's/.*current: allowed: \(.*\); preferred: \(.*\)$/\1|\2/p' | head -1
+}
+
+saver_on() {
+	[ -f "$STATE/on" ] && { echo "battery saver is already on"; return; }
+	[ -f "$HOME/.local/state/nrdap/on" ] && { echo "DAP mode is on (it already saves more)"; return; }
+	mkdir -p "$STATE"; : >"$STATE/daemons"; : >"$STATE/radios"
+	log "ON  ${WHY:+($WHY) }$(cat $BAT/capacity)% $(cat $BAT/current_now) uA"
+	echo "$DAEMONS" | while IFS='|' read -r desk pat; do
+		[ -n "$desk" ] || continue
+		if pgrep -f "$pat" >/dev/null; then
+			echo "$desk" >>"$STATE/daemons"
+			[ "$desk" = gdrive-mount.desktop ] && fusermount3 -u "$HOME/GoogleDrive" 2>/dev/null
+			pkill -f "$pat"
+		fi
+	done
+	pkill -f "[s]sccli --sensor accelerometer"          # rotated's sensor reader
+	# modem: 5G -> 4G (5G NR draws a lot more on this chip); calls, SMS and data keep working
+	m=$(modem_modes)
+	case "$m" in *5g*)
+		echo "$m" >"$STATE/modem"
+		mmcli -m any --set-allowed-modes='2g|3g|4g' --set-preferred-mode=4g >/dev/null 2>&1 \
+			|| { log "modem: could not switch to 4G"; rm -f "$STATE/modem"; } ;;
+	esac
+	# radios that are on but not used
+	if [ "$(nmcli -t radio wifi)" = enabled ] && ! nmcli -t -f TYPE,STATE device | grep -q '^wifi:connected'; then
+		echo wifi >>"$STATE/radios"; nmcli radio wifi off
+	fi
+	if bluetoothctl show 2>/dev/null | grep -q "Powered: yes" && [ -z "$(bluetoothctl devices Connected 2>/dev/null)" ]; then
+		echo bt >>"$STATE/radios"; bluetoothctl power off >/dev/null 2>&1
+	fi
+	sudo -n /usr/local/bin/nrdap-cpu on 2>/dev/null || log "nrdap-cpu not installed: CPU not capped"
+	touch "$STATE/on"
+	if [ "$WHY" = auto ]; then
+		notify-send -a "Battery saver" "Battery at $(cat $BAT/capacity)% - saver on" "Slower, but calls, messages and mail still come in. Plugging in turns it off." 2>/dev/null
+	else
+		notify-send -a "Battery saver" "Battery saver on" "Slower, but calls, messages and mail still come in." 2>/dev/null
+	fi
+	log "ON  done: stopped $(tr '\n' ' ' <"$STATE/daemons")radios off: $(tr '\n' ' ' <"$STATE/radios")modem: $(cat "$STATE/modem" 2>/dev/null)"
+}
+
+saver_off() {
+	[ -f "$STATE/on" ] || { echo "battery saver is already off"; return; }
+	sudo -n /usr/local/bin/nrdap-cpu off 2>/dev/null
+	if [ -f "$STATE/modem" ]; then
+		allowed=$(cut -d'|' -f1 "$STATE/modem" | tr -d ' ' | tr ',' '|'); pref=$(cut -d'|' -f2 "$STATE/modem" | tr -d ' ')
+		if [ "$pref" = none ]; then
+			mmcli -m any --set-allowed-modes="$allowed" >/dev/null 2>&1
+		else
+			mmcli -m any --set-allowed-modes="$allowed" --set-preferred-mode="$pref" >/dev/null 2>&1
+		fi || log "modem: could not restore $allowed / $pref"
+	fi
+	grep -qx wifi "$STATE/radios" && nmcli radio wifi on
+	grep -qx bt "$STATE/radios" && bluetoothctl power on >/dev/null 2>&1
+	while read -r desk; do
+		[ -n "$desk" ] && (cd "$HOME" && setsid gio launch "$AUTO/$desk" >/dev/null 2>&1 &)
+	done <"$STATE/daemons"
+	rm -f "$STATE/on" "$STATE/modem"
+	notify-send -a "Battery saver" "Battery saver off" "$([ "$WHY" = auto ] && echo "Charging - full speed again." || echo "Full speed again.")" 2>/dev/null
+	log "OFF ${WHY:+($WHY) }$(cat $BAT/capacity)%"
+}
+
+case "$1" in
+	on) saver_on ;;
+	off) saver_off ;;
+	toggle) if [ -f "$STATE/on" ]; then saver_off; else saver_on; fi ;;
+	status|"") [ -f "$STATE/on" ] && echo on || echo off ;;
+	*) echo "usage: nrsaver on|off|toggle|status" >&2; exit 1 ;;
+esac

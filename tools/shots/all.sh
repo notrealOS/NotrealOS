@@ -27,7 +27,6 @@ SNAP_PRELOAD=$D/player.py SHOT_TIMEOUT=90 SNAP_ACTION_AT=8 THEME=nasa \
 for sc in place routes nav; do
     SNAP_PRELOAD=$D/maps.py EXTRA_ENV="MAPS_SCENE=$sc" shot maps-$sc $([ $sc = nav ] && echo 12 || echo 9) "$SRC/maps/maps.py"
 done
-SNAP_PRELOAD=$D/feed.py shot feed 10 "$SRC/reddit/notarealreddit.py"
 SNAP_PRELOAD=$D/phone.py shot phone 8 "$SRC/calls/nrcalls.py"
 SNAP_PRELOAD=$D/gallery.py shot gallery 18 "$SRC/gallery/gallery.py"
 shot sound 7 "$SRC/nrvolume/nrvolume.py"

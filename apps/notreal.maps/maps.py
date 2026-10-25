@@ -8,6 +8,7 @@ Left-handed: actions sit on the left.
 import datetime
 import math
 import os
+import re
 import signal
 import sys
 import threading
@@ -1053,7 +1054,21 @@ class Window(Adw.ApplicationWindow):
         if mine:
             return self._open_saved(mine)
         self._set_entry(q)
-        self._search(None, q)
+        nums = re.findall(r"\b\d+[a-zA-Z]?\b", q)
+        if not nums:
+            return self._search(None, q)
+        # 10-25: an address (Circle/voice OCR text) -> autocomplete first: text search sent
+        # "Skorstensgatan 6" to nearby venues, autocomplete found "Stora Skorstensgatan 6"
+        self._blur()
+        near = self._near()
+
+        def addr():
+            for s in self.g.autocomplete(q, near)[:1]:
+                if nums[0].lower() in s["name"].lower().split():
+                    return self.g.details(s["id"])
+            return None
+        bg(addr, lambda p: self.show_place(p) if p else self._search(None, q),
+           lambda e: self._search(None, q))
 
     def voice_navigate(self, q):
         if self.navigating:

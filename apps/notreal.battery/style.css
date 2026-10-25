@@ -1,0 +1,30 @@
+/* notreal.battery: coloured by the active notareal theme (--nr-*) */
+.bt-page { padding: 16px; }
+.bt-title { font-family: var(--nr-font-code); font-size: 12pt; letter-spacing: 3px; color: var(--nr-fg-bright); }
+.bt-big { font-family: var(--nr-font-text); font-weight: 200; font-size: 48pt; color: var(--nr-fg-bright); }
+.bt-status { font-family: var(--nr-font-code); font-weight: 800; letter-spacing: 2px; font-size: 11pt; color: var(--nr-accent); }
+.bt-sub { font-family: var(--nr-font-code); letter-spacing: 1px; font-size: 9pt; color: alpha(var(--nr-fg), 0.7); }
+.bt-card { background: var(--nr-surface); border-radius: 28px; padding: 16px 18px; }
+.square .bt-card { border-radius: 0; }
+.bt-legend { font-family: var(--nr-font-code); font-size: 8pt; letter-spacing: 1px; }
+.bt-legend.on { color: var(--nr-accent); }
+.bt-legend.sleep { color: var(--nr-violet); }
+.bt-legend.chg { color: var(--nr-mint); }
+.bt-verdict { font-family: var(--nr-font-text); font-size: 12pt; color: var(--nr-fg-bright); padding: 0 4px; }
+.bt-tile-title { font-family: var(--nr-font-code); letter-spacing: 2px; font-size: 8.5pt; color: var(--nr-fg-bright); }
+.bt-tile-value { font-family: var(--nr-font-text); font-weight: 300; font-size: 22pt; color: var(--nr-fg-bright); }
+.bt-tile-sub { font-family: var(--nr-font-code); font-weight: 800; font-size: 9pt; color: var(--nr-orange); }
+.bt-tile-note { font-family: var(--nr-font-code); font-size: 8pt; color: alpha(var(--nr-fg), 0.55); }
+.bt-head { font-family: var(--nr-font-code); letter-spacing: 2px; font-size: 9pt; color: alpha(var(--nr-fg), 0.7); margin: 6px 4px 0 4px; }
+.bt-list { padding: 8px 18px; }
+.bt-row { padding: 8px 0; }
+.bt-row-name { font-family: var(--nr-font-code); font-size: 10pt; color: var(--nr-fg-bright); }
+.bt-row-sub { font-family: var(--nr-font-code); font-size: 9pt; color: var(--nr-fg); }
+levelbar.bt-bar block.filled { background: var(--nr-accent); border-radius: 3px; }
+levelbar.bt-bar block.empty { background: alpha(var(--nr-fg), 0.08); border-radius: 3px; }
+levelbar.bt-bar trough { min-height: 5px; padding: 0; border: none; background: none; }
+.bt-foot { font-family: var(--nr-font-code); font-size: 7pt; letter-spacing: 2px; color: alpha(var(--nr-fg), 0.45); margin: 8px 0 24px 0; }
+button.bt-saver { font-family: var(--nr-font-code); font-weight: 800; letter-spacing: 2px; font-size: 9pt;
+  border-radius: 999px; padding: 10px 16px; background: alpha(var(--nr-fg), 0.10); color: var(--nr-fg-bright); }
+button.bt-saver:checked { background: var(--nr-mint); color: var(--nr-bg); }
+.square button.bt-saver { border-radius: 0; }

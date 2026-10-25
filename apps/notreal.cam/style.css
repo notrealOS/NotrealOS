@@ -9,6 +9,7 @@ button.cam-chip, togglebutton.cam-chip {
 }
 button.cam-chip.on, togglebutton.cam-chip:checked { background: var(--nr-primary); color: var(--nr-bg); }
 button.cam-chip.small { font-size: 8pt; min-height: 24px; padding: 2px 8px; background: alpha(black, 0.45); color: white; }
+togglebutton.cam-chip.na { opacity: 0.45; }
 
 .cam-ev scale trough { min-width: 6px; background: alpha(white, 0.25); }
 .cam-ev scale highlight { background: var(--nr-yellow); }
@@ -58,3 +59,7 @@ button.cam-shutter.rec {
 }
 button.cam-chip.mode { min-height: 26px; }
 .cam-status.rec { background: alpha(#e0313a, 0.85); }
+
+/* QR pill (10-24): bottom-left over the preview */
+.cam-qr { background: alpha(black, 0.72); border-radius: 999px; padding: 6px 8px 6px 6px; }
+.cam-qr-text { font-family: var(--nr-font-code); font-size: 10pt; color: white; }

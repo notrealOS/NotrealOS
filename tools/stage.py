@@ -16,19 +16,23 @@ APPS = {
     "calls": "apps/notreal.phone", "calendar": "apps/notreal.calendar", "contacts": "apps/notreal.contacts",
     "gallery": "apps/notreal.gallery", "edit": "apps/notreal.edit", "link": "apps/notreal.link",
     "share": "apps/notreal.share", "nrvolume": "apps/notreal.sound", "spin": "apps/notreal.player",
-    "maps": "apps/notreal.maps", "reddit": "apps/notreal.feed", "tube": "apps/notreal.tube",
+    "maps": "apps/notreal.maps", "tube": "apps/notreal.tube", "weather": "apps/notreal.weather",
+    "calc": "apps/notreal.calc", "clock": "apps/notreal.clock", "battery": "apps/notreal.battery", "hub": "apps/notreal.system",
     "theme": "shell/theme",
     ".local/share/phantomshell": "shell/phantomshell", "arc": "shell/joystick", "swipe": "shell/keyboard",
     "gestures": "shell/gestures", "crt": "shell/crt", "overview-widget": "shell/overview-widget",
-    "rotated": "shell/rotated", "shadewatch": "shell/shadewatch", "circle": "shell/circle",
+    "rotated": "shell/rotated", "hubs": "shell/hubs", "shadewatch": "shell/shadewatch", "circle": "shell/circle",
     "voice": "system/voice", "alarm": "system/alarm", "sleepd": "system/sleepd", "doctor": "system/doctor",
     "backup": "system/backup", "haptics": "system/haptics", "ka5idle": "system/ka5idle", "glyph": "system/glyph",
+    "dap": "system/dap", "saver": "system/saver", "update": "system/update", "xkbguard": "system/xkbguard",
+    "usbreset": "system/usbreset",
 }
 
 # per-source paths (regex on the path inside the folder) that must stay private or aren't ours to publish
 EXCLUDE = {
     ".local/share/phantomshell": r"\.jpg$|^notes\.json$|^reminders\.json$",
     "swipe": r"^dict/|^dl-freq/|vpkeep",
+    "doctor": r"^reports/",              # health reports about this phone
     "backup": r"^RESTORE\.md$",          # the author's personal restore notes
     "glyph": r"notarealchat-version$",
     "theme": r"^lock/vapor|^icons-before|\.v1$|^icon-src/(?!dev\.notareal\.(?!Droid)|org\.gnome\.|mobi\.phosh\.|sm\.puri\.)",

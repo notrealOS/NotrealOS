@@ -44,3 +44,7 @@ textview.notes { border-radius: 12px; padding: 8px; }
 button.step-btn { font-size: 14pt; font-weight: 800; letter-spacing: 2px; min-height: 60px; min-width: 130px;
   border-radius: 999px; }
 button.step-btn.suggested { background: var(--nr-primary); color: var(--nr-bg); }
+
+/* 10-24 video meetings: JOIN chip on agenda rows, links in notes */
+button.chip.join { background: var(--nr-primary); color: var(--nr-bg); font-weight: 800; letter-spacing: 1px; }
+.d-notes link, .d-value link { color: var(--nr-primary); }

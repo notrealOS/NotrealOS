@@ -24,6 +24,15 @@ minutes for the face's mood (failed/manual -> sad, minor -> meh, else happy).
 - --auto (the widget's periodic run since 10-16): like a tap, but a daemon that was
   restarted AUTO_MAX times within the last hour is left alone (crash loop, or the user
   closed it on purpose) and reported as failed.
+- 10-24 (v2): helpers that battery saver / DAP mode stopped on purpose count as paused, not
+  down; duplicate daemons (two voice assistants...) are cut back to one; battery logger,
+  backup scheduler (+ its stale lock) and circle-to-search are watched too; modem left on 4G
+  after the saver -> 5G again; plus minor notes: no backup lately, Chromium crashing / falling
+  back to X11, and battery-log trends (awake with the screen off, drain spikes, heat; trends.py).
+  Every result gets plain-language "details" (why + what you can do), is saved to
+  $XDG_RUNTIME_DIR/nrdoctor-last.json for the card (card.py), and anything that stays broken
+  gets a report in ~/doctor/reports/ (for Claude). --auto also sends the weekly battery
+  report (Sunday evening). --do <action> runs one of the safe ACTIONS (card / PC diagnosis).
 """
 
 import re
@@ -49,6 +58,7 @@ def pc(key, default=""):
 
 HOME = os.path.expanduser("~")
 RUN = os.environ.get("XDG_RUNTIME_DIR", f"/run/user/{os.getuid()}")
+NROUTPUT = f"{HOME}/nrvolume/nroutput.py"   # 10-24 DAC / SPEAKER choice
 UID = os.getuid()
 LOG = os.path.join(RUN, "nrdoctor.log")
 
@@ -78,6 +88,10 @@ DAEMONS = [
     ("call screen", "/calls/nrcalls.py", f"{HOME}/calls/nrcalls --service"),
     ("DAC volume fix", "/.local/bin/ka5-volfix", f"{HOME}/.local/bin/ka5-volfix"),
     ("overview widget", "/overview-widget/overview-widget.py", f"{HOME}/overview-widget/overview-widget"),
+    ("battery logger", "/battery/nrbatteryd.py",
+     f"exec {HOME}/battery/nrbatteryd.py >> {HOME}/battery/nrbatteryd.log 2>&1"),
+    ("backup scheduler", "/backup/nrbackupd", f"{HOME}/backup/nrbackupd"),
+    ("circle to search", "/circle/circled.py", f"{HOME}/circle/circled-loop"),
 ]
 AFTER_PULSE = ("call audio", "call helper")   # restarted whenever pulse is restarted
 
@@ -104,6 +118,15 @@ BAT = "/sys/class/power_supply/qcom-battmgr-bat"
 HOT_C = 45
 LOW_RAM_MB = 400
 HOG_PCT = 60          # one process above this share of a core (sampled over 2 s)
+AUTOSTART = os.path.join(HOME, ".config", "autostart")
+MODES = (("battery saver", os.path.join(HOME, ".local/state/nrsaver")),   # mode name, state dir
+         ("DAP mode", os.path.join(HOME, ".local/state/nrdap")))
+LAST = os.path.join(RUN, "nrdoctor-last.json")       # the last result, for the card
+REPORTS = os.path.join(HOME, "doctor", "reports")     # hand-offs for Claude
+BACKUP_STATE = os.path.join(HOME, ".local/state/nrbackup")
+BACKUP_DAYS = 3
+CHROMIUM_LOG = os.path.join(HOME, ".cache/chromium-safe.log")
+CRASH_DIR = os.path.join(HOME, ".config/chromium/Crash Reports/pending")
 
 
 def log(msg):
@@ -190,17 +213,8 @@ def pulse_fix():
                    stderr=subprocess.DEVNULL, timeout=15)
     if not wait_for(pulse_ok, 8):
         return False
-    # after a restart pulse may pick the speaker even with the DAC plugged in
-    sinks = subprocess.run(["pactl", "list", "short", "sinks"], capture_output=True,
-                           text=True).stdout.split("\n")
-    usb = [s.split("\t")[1] for s in sinks if "\t" in s and ".usb-" in s.split("\t")[1]]
-    if usb:
-        subprocess.run(["pactl", "set-default-sink", usb[0]])
-        inputs = subprocess.run(["pactl", "list", "short", "sink-inputs"], capture_output=True,
-                                text=True).stdout.split("\n")
-        for line in inputs:
-            if line.strip():
-                subprocess.run(["pactl", "move-sink-input", line.split("\t")[0], usb[0]])
+    # after a restart pulse may pick the wrong output: put back the DAC / SPEAKER choice (10-24)
+    subprocess.run([NROUTPUT, "apply"], capture_output=True, timeout=10)
     return True
 
 
@@ -299,16 +313,16 @@ def dac_card():
 
 
 def dac_default_ok():
+    # 10-24: the user picks DAC or SPEAKER (nroutput); only DAC chosen means the DAC must be default
     usb = [n for n, _ in sinks() if ".usb-" in n]
-    return not usb or sh("pactl", "get-default-sink").strip() in usb
+    if not usb:
+        return True
+    want_dac = sh(NROUTPUT, "status").split()[:1] != ["speaker"]
+    return (sh("pactl", "get-default-sink").strip() in usb) == want_dac
 
 
 def dac_default_fix():
-    usb = [n for n, _ in sinks() if ".usb-" in n]
-    sh("pactl", "set-default-sink", usb[0])
-    for line in sh("pactl", "list", "short", "sink-inputs").split("\n"):
-        if line.strip():
-            sh("pactl", "move-sink-input", line.split("\t")[0], usb[0])
+    sh(NROUTPUT, "apply")
     return dac_default_ok()
 
 
@@ -438,6 +452,338 @@ def camera_services_fix():
     return r.returncode == 0
 
 
+# --- 10-24 (v2) -------------------------------------------------------------------
+
+def mode_paused():
+    """({launcher basenames stopped on purpose}, mode name) while battery saver / DAP mode is on."""
+    for mode, st in MODES:
+        if os.path.exists(os.path.join(st, "on")):
+            names = set()
+            for desk in read(os.path.join(st, "daemons")).split():
+                ex = re.search(r"^Exec=(.*)$", read(os.path.join(AUTOSTART, desk)), re.M)
+                if ex:
+                    names.add(os.path.basename(ex.group(1).split()[0]))
+            return names, mode
+    return set(), None
+
+
+def start_time(pid):
+    f = read(f"/proc/{pid}/stat").rsplit(")", 1)
+    return int(f[1].split()[19]) if len(f) == 2 else 0
+
+
+def ppid(pid):
+    f = read(f"/proc/{pid}/stat").rsplit(")", 1)
+    return int(f[1].split()[1]) if len(f) == 2 else 0
+
+
+def duplicates(match, launcher):
+    """[pids to kill] when a .py daemon runs more than once: keep the instance started first
+    (by its wrapper loop, if it has one), drop the rest together with their own wrappers."""
+    if not match.endswith(".py"):
+        return []
+    inst = [p for p, uid, cmd in procs() if uid == UID and match in cmd and cmd.startswith(("python", "/usr/bin/python", "/usr/sbin/python"))]
+    if len(inst) < 2:
+        return []
+    wrapper = os.path.basename(launcher.split()[0])
+
+    def unit(pid):
+        parent = ppid(pid)
+        own_wrapper = parent > 1 and wrapper in read(f"/proc/{parent}/cmdline").replace("\0", " ")
+        return (start_time(parent) if own_wrapper else start_time(pid)), ([parent] if own_wrapper else []) + [pid]
+    units = sorted(unit(p) for p in inst)
+    shared = set(units[0][1])
+    return [p for _, pids in units[1:] for p in pids if p not in shared]
+
+
+def free_backup_lock():
+    """10-24: a killed nrbackupd left its `sleep 900` child holding daemon.lock (flock), so every
+    new nrbackupd exited at once. Kill whatever still holds it when no nrbackupd runs."""
+    lock = os.path.join(BACKUP_STATE, "daemon.lock")
+    for d in os.listdir("/proc"):
+        if not d.isdigit():
+            continue
+        try:
+            if any(os.readlink(f"/proc/{d}/fd/{fd}") == lock for fd in os.listdir(f"/proc/{d}/fd")):
+                os.kill(int(d), signal.SIGTERM)
+        except OSError:
+            continue
+
+
+def modem_modes():
+    out = sh("mmcli", "-m", "any")
+    m = re.search(r"current: allowed: (.*); preferred: (\w+)", out)
+    return (m.group(1), m.group(2)) if m else (None, None)
+
+
+def modem_5g_ok():
+    """Battery saver puts the modem on 4G; with the saver off it must be back on 5G."""
+    if mode_paused()[1]:
+        return True
+    allowed, _ = modem_modes()
+    return allowed is None or "5g" in allowed or "5gnr" not in sh("mmcli", "-m", "any")
+
+
+def modem_5g_fix():
+    sh("mmcli", "-m", "any", "--set-allowed-modes=2g|3g|4g|5g", "--set-preferred-mode=5g", timeout=20)
+    return wait_for(modem_5g_ok, 5)
+
+
+def backup_notes():
+    st = read(os.path.join(BACKUP_STATE, "status.json"))
+    last = os.path.join(BACKUP_STATE, "last-ok")
+    age = (time.time() - os.path.getmtime(last)) / 86400 if os.path.exists(last) else None
+    notes = []
+    if age is None or age > BACKUP_DAYS:
+        notes.append("no backup in %s (needs the charger at night)" %
+                     ("ever" if age is None else f"{age:.0f} days"))
+    try:
+        j = json.loads(st) if st else {}
+        if j.get("ok") is False and time.time() - j.get("time", 0) < 86400:
+            notes.append(f"last backup failed: {j.get('msg', '?')}")
+    except ValueError:
+        pass
+    return notes
+
+
+def chromium_notes():
+    notes = []
+    day = time.time() - 86400
+    falls = 0
+    for line in read(CHROMIUM_LOG).splitlines():
+        try:
+            t = time.mktime(time.strptime(line[:19], "%Y-%m-%d %H:%M:%S"))
+        except ValueError:
+            continue
+        falls += t > day and "fallback" in line
+
+    try:
+        dumps = [f for f in os.listdir(CRASH_DIR) if f.endswith(".dmp")
+                 and os.path.getmtime(os.path.join(CRASH_DIR, f)) > day]
+    except OSError:
+        dumps = []
+    browser = 0
+    for f in dumps:
+        try:
+            with open(os.path.join(CRASH_DIR, f), "rb") as fh:
+                data = fh.read()
+            i = data.find(b"ptype")          # crashpad annotation: "ptype" then the process type
+            browser += i >= 0 and b"browser" in data[i:i + 40]
+        except OSError:
+            pass
+    if falls and browser <= falls:
+        notes.append(f"Chromium crashed at launch {falls}× today (opened in X11 instead)")
+    elif browser:
+        notes.append(f"Chromium crashed {browser}× today" + (f" ({falls} at launch, opened in X11)" if falls else ""))
+    return notes
+
+
+def trend_notes():
+    try:
+        import trends
+        return trends.notes()
+    except Exception as e:  # noqa: BLE001 - trends are a bonus, never break the check
+        log(f"trends: {e!r}")
+        return []
+
+
+# plain language for the card: (start of a result name, why it matters, what you can do)
+EXPLAIN = [
+    ("sound (pulseaudio)", "The sound server stopped, so no app can play or record sound.",
+     "I restart it by myself. If it keeps failing: reboot."),
+    ("free space for logs", "The small memory area for logs is full; background helpers start dying.",
+     "I empty the biggest logs by myself."),
+    ("mobile network", "The modem isn't connected to Tele2: no calls, SMS or mobile data.",
+     "Turn mobile data / flight mode off and on. If it stays down: reboot, then check the SIM."),
+    ("SMS delivery", "Text messages are stuck on the modem: the chat app isn't picking them up.",
+     "I restart the chat app by myself; the messages then show up."),
+    ("call audio routing", "The voice paths for calls are switched off: calls would be silent.",
+     "I switch them back on by myself."),
+    ("speaker sample format", "The speaker runs in a format the audio chip garbles (robotic sound).",
+     "I restart the sound server by myself."),
+    ("USB-C device detected", "Something is plugged into USB-C but the phone doesn't see it.",
+     "Unplug it and plug it back in. If it stays dead: reboot."),
+    ("DAC is the default output", "The KA5 is plugged in but sound goes to the speaker.",
+     "I move the sound to the KA5 by myself."),
+    ("DAC volume", "The KA5's second volume control dropped, so everything is very quiet.",
+     "I turn it back up by myself."),
+    ("camera services", "Two camera services are fighting, so the camera stays black.",
+     "I restart them by myself. Close the camera app first if it's open."),
+    ("internet", "The phone has no internet right now.",
+     "Check mobile data (top bar). Chats, mail and the PC links wait until it's back."),
+    ("home phone link", "Can't reach the Android phone at home (EasyPark, Uber, SL...).",
+     "Make sure that phone is on and on Wi-Fi; its wireless debugging may have switched off."),
+    ("sleep fix", "Bluetooth is allowed to wake the phone, so it barely sleeps (battery drain).",
+     "Reboot (the fix is applied at boot). If it comes back: tell Claude."),
+    ("disk space", "The phone's storage is almost full.",
+     "Delete videos / downloads, or ask Claude what is safe to remove."),
+    ("music server (PC)", "The PC isn't answering: music streaming, voice answers and backups wait.",
+     "Check the PC is on and awake (and Tailscale is running there)."),
+    ("chat server (PC)", "The PC's chat server isn't answering: WhatsApp / Messenger messages wait.",
+     "Check the PC is on and awake (and Tailscale is running there)."),
+    ("PC link relayed", "The phone reaches the PC only through a slow relay.",
+     "Usually fixes itself; on the same Wi-Fi as the PC it's direct."),
+    ("modem on 5G", "The modem was left on 4G after battery saver.",
+     "I put it back on 5G by myself."),
+    ("duplicate", "A background helper was running twice (they fight over the same keys / files).",
+     "I stopped the extra copy by myself."),
+    ("battery hot", "The battery is hot: something works hard or the phone sits in the sun.",
+     "Close heavy apps (video calls, games), take it off the charger for a while."),
+    ("battery low", "The battery is nearly empty.", "Plug it in. Battery saver switches on at 20 %."),
+    ("low memory", "Memory is almost full, so apps get slow or closed.",
+     "Close the biggest app shown, or reboot."),
+    ("Chromium crashed at launch", "Chromium's Wayland start crashed and it fell back to X11 (keyboard issues).",
+     "Close and reopen Chromium. If it keeps happening: tell Claude (see the report)."),
+    ("Chromium crashed", "Chromium crashed today.", "Reopen it. If it repeats: tell Claude."),
+    ("no backup", "The phone hasn't been backed up to the PC lately.",
+     "Leave it on the charger tonight (the backup needs charger + internet)."),
+    ("last backup failed", "The last backup to the PC failed.", "Make sure the PC is on; it retries hourly."),
+    ("stayed awake", "The phone didn't sleep with the screen off: that's where battery goes.",
+     "Close the app named; if it's a background helper, tell Claude."),
+    ("screen-off drain", "Battery drains much faster than usual with the screen off.",
+     "Something new keeps it busy; see the busiest processes, or ask the PC."),
+    ("sleep drain", "Battery drains faster than usual while asleep.",
+     "A radio or app keeps waking it; ask the PC or tell Claude."),
+    ("got hot", "The phone ran hot in the last hour.", "Close the busiest app shown; let it cool down."),
+    ("using", "One process keeps a CPU core busy (heat + drain).",
+     "Close that app if it's yours; if it's a helper, tap CHECK AGAIN or tell Claude."),
+]
+
+
+def explain(name):
+    for start, why, todo in EXPLAIN:
+        if name.startswith(start) or start in name:
+            return {"why": why, "todo": todo}
+    if any(name.startswith(n) for n, _ in SYSTEM):
+        return {"why": "A system service (root) is down.", "todo": "Reboot. If it stays down: tell Claude."}
+    if any(name.split(" (")[0] == n for n, _, _ in DAEMONS):
+        return {"why": f"A background helper isn't running ({name.split(' (')[0]}).",
+                "todo": "Tap CHECK AGAIN to restart it. If it keeps stopping, it is crashing: see the report."}
+    return {"why": "Something looks off.", "todo": "Tap ASK THE PC for a diagnosis, or tell Claude."}
+
+
+# safe actions the card and the PC diagnosis may run (id -> label, fn); never anything else
+def _restart_daemon(name):
+    for n, match, launcher in DAEMONS:
+        if n == name:
+            kill(find(match))
+            launch(launcher)
+            return bool(wait_for(lambda: find(match), 8))
+    return False
+
+
+ACTIONS = {
+    "sound": ("Restart the sound server", pulse_fix),
+    "call_audio": ("Switch the call voice paths on", mixers_fix),
+    "modem_5g": ("Put the modem back on 5G", modem_5g_fix),
+    "free_logs": ("Empty big logs", run_fix),
+    "camera": ("Restart the camera services", camera_services_fix),
+    "usb_reset": ("Reset the USB-C port", usb_reset),
+    "home_phone": ("Reconnect the home Android phone", adb_fix),
+    "saver_on": ("Turn battery saver on", lambda: subprocess.run([os.path.join(HOME, "saver/nrsaver"), "on"], timeout=60).returncode == 0),
+    "saver_off": ("Turn battery saver off", lambda: subprocess.run([os.path.join(HOME, "saver/nrsaver"), "off"], timeout=60).returncode == 0),
+}
+for _n, _m, _l in DAEMONS:
+    ACTIONS["restart:" + _n] = (f"Restart {_n}", lambda n=_n: _restart_daemon(n))
+
+
+def do_action(aid):
+    if aid not in ACTIONS:
+        return {"ok": False, "msg": f"unknown action {aid}"}
+    label, fn = ACTIONS[aid]
+    try:
+        ok = bool(fn())
+    except Exception as e:  # noqa: BLE001
+        log(f"action {aid} failed: {e!r}")
+        ok = False
+    log(f"action {aid}: {'ok' if ok else 'FAILED'}")
+    return {"ok": ok, "msg": label + (" - done" if ok else " - didn't work")}
+
+
+REPORT_LOGS = {   # which logs go into a report for an issue (start of its name -> paths)
+    "sound": [os.path.join(RUN, "nrdoctor.log")],
+    "Chromium": [CHROMIUM_LOG],
+    "no backup": [os.path.join(BACKUP_STATE, "backup.log")],
+    "last backup": [os.path.join(BACKUP_STATE, "backup.log")],
+    "sleep": [os.path.join(HOME, "sleepd/sleepd.log")],
+    "stayed awake": [os.path.join(HOME, "sleepd/sleepd.log")],
+    "swipe keyboard": [os.path.join(RUN, "swipekbd.log")],
+    "voice assistant": [os.path.join(RUN, "voiced.log")],
+    "notarealChat": [os.path.join(RUN, "notarealchat.log")],
+}
+
+
+def tail(path, n=40):
+    try:
+        with open(path, errors="replace") as f:
+            return "".join(f.readlines()[-n:])
+    except OSError:
+        return ""
+
+
+def write_report(issue, res=None, note=""):
+    """~/doctor/reports/<date>-<slug>.md, at most one per issue per day. Returns the path."""
+    os.makedirs(REPORTS, exist_ok=True)
+    slug = re.sub(r"[^a-z0-9]+", "-", issue.lower()).strip("-")[:40] or "report"
+    path = os.path.join(REPORTS, time.strftime("%Y-%m-%d-") + slug + ".md")
+    if os.path.exists(path) and not note:
+        return path
+    ex = explain(issue)
+    parts = [f"# {issue}", "", f"{time.strftime('%Y-%m-%d %H:%M')} · up {float(read('/proc/uptime', '0').split()[0]) / 3600:.1f} h",
+             "", f"**Why it matters:** {ex['why']}", f"**Suggested:** {ex['todo']}"]
+    if note:
+        parts += ["", "**Note:** " + note]
+    if res:
+        parts += ["", "## Doctor result (problems only)", "```",
+                  json.dumps({k: res.get(k) for k in ("fixed", "failed", "manual", "minor", "mode") if res.get(k)}, indent=1), "```"]
+    asked = json.loads(read(os.path.join(RUN, "nrdoctor-ask.json")) or "{}")
+    if asked and time.time() - asked.get("time", 0) < 6 * 3600:
+        parts += ["", f"## The PC's diagnosis ({time.strftime('%H:%M', time.localtime(asked['time']))}: {asked.get('question', '')})",
+                  asked.get("error") or asked.get("summary", ""), "", "Cause: " + asked.get("cause", ""),
+                  *["- " + st for st in asked.get("steps", [])]]
+    parts += ["", "## Battery / heat", "```", "\n".join(trend_notes()) or "(nothing unusual)", "```"]
+    logs = [os.path.join(RUN, "nrdoctor.log")]
+    for start, paths in REPORT_LOGS.items():
+        if issue.startswith(start) or start in issue:
+            logs += paths
+    quiet = re.compile(r"check: \d+ ok, fixed \[\], failed \[\], down \[\]")   # routine all-OK lines
+    for pth in dict.fromkeys(logs):
+        t = "".join(l for l in tail(pth, 200).splitlines(True) if not quiet.search(l))[-6000:]
+        if t:
+            parts += ["", f"## {pth}", "```", t.rstrip(), "```"]
+    k = tail(os.path.join(HOME, "crashlog/kmsg.log"), 400)
+    errs = [l for l in k.splitlines() if re.search(r"error|fail|timeout|oops|bug:", l, re.I)][-25:]
+    if errs:
+        parts += ["", "## kernel errors (last 25)", "```", "\n".join(errs), "```"]
+    with open(path, "w") as f:
+        f.write("\n".join(parts) + "\n")
+    log(f"report written: {path}")
+    return path
+
+
+WEEKLY = os.path.join(HOME, ".local/state/nrdoctor-weekly")
+
+
+def weekly_report():
+    """--auto: Sunday from 19:00, once per ISO week, the week's battery report as a notification."""
+    now = datetime.datetime.now()
+    week = now.strftime("%G-W%V")
+    if now.weekday() != 6 or now.hour < 19 or read(WEEKLY) == week:
+        return
+    try:
+        import trends
+        text = trends.text_report(7)
+    except Exception as e:  # noqa: BLE001
+        log(f"weekly report: {e!r}")
+        return
+    os.makedirs(REPORTS, exist_ok=True)
+    with open(os.path.join(REPORTS, f"weekly-{week}.md"), "w") as f:
+        f.write(f"# Battery week {week}\n\n{text}\n")
+    with open(WEEKLY, "w") as f:
+        f.write(week)
+    subprocess.Popen(["notify-send", "-a", "System check", "Your battery week", text])
+
+
 def load_state():
     try:
         with open(STATE) as f:
@@ -460,7 +806,20 @@ def run(fix=True, auto=False):
     res = {"ok": [], "fixed": [], "failed": [], "manual": [], "minor": []}
     state = load_state()
 
+    paused, mode = mode_paused()
+
     def restart(name, match, launcher, force=False):
+        if os.path.basename(launcher.split()[0]) in paused and not force:
+            res["ok"].append(f"{name} (paused by {mode})")
+            return
+        extra = duplicates(match, launcher)
+        if extra:
+            if fix:
+                kill(extra)
+                res["fixed"].append(f"duplicate {name} (stopped the extra copy)")
+                log(f"duplicate {name}: killed {extra}")
+            else:
+                res["minor"].append(f"duplicate {name} running")
         pids = find(match)
         if not pids and fix and not force:
             # 10-16: a wrapper loop (voiced, crtd, chat…) restarts its daemon after a few seconds;
@@ -479,6 +838,8 @@ def run(fix=True, auto=False):
         state[name] = recent + [time.time()]
         if pids:
             kill(pids)
+        if name == "backup scheduler":
+            free_backup_lock()
         launch(launcher)
         if wait_for(lambda: find(match), 6):
             res["fixed"].append(name)
@@ -528,14 +889,18 @@ def run(fix=True, auto=False):
     check("USB-C device detected (if not: replug it, reboot if it stays dead)", usb_enumerated,
           None if auto else usb_reset, bad="manual")
     if dac_card():
-        check("DAC is the default output", dac_default_ok, dac_default_fix)
+        check("output is the one picked (DAC / SPEAKER)", dac_default_ok, dac_default_fix)
         check("DAC volume (2nd control at max)", dac_volume_ok, dac_volume_fix)
     check("camera services (1 pipewire + 1 wireplumber)", camera_services_ok, camera_services_fix)
     check("internet", lambda: reachable(INTERNET, 6), bad="manual")
     if DROID:
         check("home phone link (droid apps)", adb_ok, adb_fix, bad="minor")
     check("sleep fix (Bluetooth wake off)", sleep_ok, bad="manual")
+    check("modem on 5G", modem_5g_ok, modem_5g_fix, bad="minor")
     res["minor"] += battery_notes() + [n for n in [ram_note()] if n] + cpu_hogs()
+    res["minor"] += backup_notes() + chromium_notes() + trend_notes()
+    if mode:
+        res["mode"] = mode
     check("disk space", lambda: use_pct("/") < 90, bad="minor")
 
     for name, match in SYSTEM:
@@ -546,6 +911,15 @@ def run(fix=True, auto=False):
     if "tailscale" in res["ok"] and pc_relayed():
         res["minor"].append("PC link relayed (slow chats)")
     save_state(state)
+    res["details"] = {n: explain(n) for k in ("fixed", "failed", "manual", "minor") for n in res[k]}
+    res["time"] = time.time()
+    try:
+        with open(LAST, "w") as f:
+            json.dump(res, f)
+    except OSError:
+        pass
+    for n in res["failed"] + res["manual"]:     # still broken after trying: a hand-off for Claude
+        write_report(n, res)
     if fix or res["failed"] or res["manual"]:
         log(f"check: {len(res['ok'])} ok, fixed {res['fixed']}, failed {res['failed']}, "
             f"down {res['manual']}" + ("" if fix else " (check only)"))
@@ -556,6 +930,17 @@ PAUSE = os.path.join(RUN, "nrdoctor.pause")   # sleep tests stop daemons on purp
 
 
 def main():
+    if "--do" in sys.argv:                       # one safe action (card / PC diagnosis)
+        print(json.dumps(do_action(sys.argv[sys.argv.index("--do") + 1])))
+        return
+    if "--report" in sys.argv:                   # card's SAVE REPORT: snapshot + note for Claude
+        i = sys.argv.index("--report")
+        note = sys.argv[i + 1] if len(sys.argv) > i + 1 else ""
+        last = json.loads(read(LAST) or "{}") or None
+        print(write_report("manual report " + time.strftime("%H%M"), last, note or "saved from the card"))
+        return
+    if "--auto" in sys.argv:
+        weekly_report()
     if "--auto" in sys.argv and os.path.exists(PAUSE):
         print("paused (", PAUSE, ")")
         return

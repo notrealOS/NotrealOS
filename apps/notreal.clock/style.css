@@ -1,0 +1,55 @@
+/* notreal.clock: colours come from the shared theme (--nr-*) */
+.fab {
+  background: alpha(var(--nr-bg), 0.92); border: 1px solid alpha(var(--nr-primary), 0.45);
+  border-radius: 28px; padding: 15px 24px; box-shadow: 0 0 18px alpha(var(--nr-accent), 0.28); color: var(--nr-primary);
+}
+.fab-label { color: var(--nr-primary); letter-spacing: 3px; font-family: var(--nr-font-code); }
+.fab:active { background: alpha(var(--nr-primary), 0.16); }
+toast { background: alpha(var(--nr-surface), 0.96); color: var(--nr-fg); min-height: 52px; }
+
+.now-time { font-family: var(--nr-font-text); font-weight: 200; font-size: 56pt; color: var(--nr-fg-bright); }
+.now-date { font-family: var(--nr-font-code); letter-spacing: 3px; font-size: 10pt; color: var(--nr-fg); }
+.next-alarm { font-family: var(--nr-font-code); letter-spacing: 1px; font-size: 10pt; color: var(--nr-primary); margin-top: 8px; }
+.empty { font-family: var(--nr-font-code); letter-spacing: 2px; color: alpha(var(--nr-fg), 0.55); }
+
+button.alarm-row { padding: 0; border-radius: 22px; }
+.alarm-card { background: var(--nr-surface); border-radius: 22px; padding: 14px 18px; }
+.alarm-time { font-family: var(--nr-font-text); font-weight: 300; font-size: 30pt; color: var(--nr-fg-bright); }
+.alarm-sub { font-family: var(--nr-font-code); font-size: 10pt; letter-spacing: 1px; color: var(--nr-fg); }
+.alarm-card.off .alarm-time, .alarm-card.off .alarm-sub { opacity: 0.45; }
+
+.sheet-title { font-family: var(--nr-font-code); }
+spinbutton.pick { font-family: var(--nr-font-text); font-weight: 300; font-size: 40pt; min-width: 110px; }
+spinbutton.pick text { min-height: 72px; }
+spinbutton.pick > button { min-height: 52px; }
+.pick-colon { font-family: var(--nr-font-text); font-size: 40pt; color: var(--nr-fg); }
+.pick-when { font-family: var(--nr-font-code); font-size: 10pt; color: var(--nr-primary); }
+button.day-btn { min-height: 44px; min-width: 0; padding: 0; border-radius: 999px; font-family: var(--nr-font-code); font-weight: 800; }
+button.chip { font-family: var(--nr-font-code); font-size: 9.5pt; letter-spacing: 0; min-height: 40px; min-width: 0; padding: 0; }
+button.pill-btn { font-family: var(--nr-font-code); font-weight: 800; letter-spacing: 1px; border-radius: 999px; min-height: 48px; min-width: 0; padding: 0 12px; }
+button.big-btn { min-height: 60px; min-width: 0; font-size: 13pt; }
+
+.timer-entry { font-family: var(--nr-font-text); font-weight: 200; font-size: 34pt; color: var(--nr-fg-bright); margin: 12px 0; }
+button.tk { min-height: 60px; min-width: 0; padding: 0; border-radius: 999px; font-family: var(--nr-font-text); font-size: 20pt;
+  background: var(--nr-surface); color: var(--nr-fg-bright); border: none; box-shadow: none; }
+.timer-left { font-family: var(--nr-font-text); font-weight: 200; font-size: 40pt; color: var(--nr-fg-bright); }
+.timer-ends { font-family: var(--nr-font-code); letter-spacing: 2px; font-size: 10pt; color: var(--nr-fg); }
+.other-timer { background: var(--nr-surface); border-radius: 18px; padding: 6px 6px 6px 16px; }
+.other-left { font-family: var(--nr-font-code); font-size: 13pt; color: var(--nr-primary); }
+
+.sw-time { font-family: var(--nr-font-text); font-weight: 200; font-size: 46pt; color: var(--nr-fg-bright); }
+.sw-lap { font-family: var(--nr-font-code); letter-spacing: 2px; font-size: 11pt; color: var(--nr-fg); min-height: 22px; }
+.lap-row { padding: 9px 4px; border-bottom: 1px solid alpha(var(--nr-fg), 0.12); font-family: var(--nr-font-code); }
+.lap-n { color: alpha(var(--nr-fg), 0.6); font-size: 10pt; }
+.lap-split { color: var(--nr-fg-bright); font-size: 12pt; }
+.lap-total { color: alpha(var(--nr-fg), 0.6); font-size: 10pt; }
+.lap-row.best .lap-split { color: var(--nr-mint); }
+.lap-row.worst .lap-split { color: var(--nr-orange); }
+
+.tabbar { padding: 4px 8px 10px 8px; border-top: 1px solid alpha(var(--nr-fg), 0.10); }
+button.tab { min-height: 56px; min-width: 0; padding: 0; border-radius: 18px; color: alpha(var(--nr-fg), 0.6); }
+button.tab:checked { color: var(--nr-primary); background: alpha(var(--nr-primary), 0.12); }
+.tab-label { font-family: var(--nr-font-code); font-size: 8pt; letter-spacing: 1px; }
+
+.square button.alarm-row, .square .alarm-card, .square button.tk, .square button.pill-btn, .square button.tab,
+.square button.day-btn, .square .other-timer, .square .fab { border-radius: 0; }

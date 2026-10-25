@@ -1,6 +1,10 @@
 #!/bin/sh
 # Focus the next/previous open window (in the order wlrctl lists them, wrapping around).
 # Usage: appswitch next|prev
+# A bottom-edge swipe that went up into the hub picker (~/hubs/hubd.py) and then sideways
+# is a hub pick, not an app switch: hubd touches this flag while its picker is up.
+flag="${XDG_RUNTIME_DIR:-/tmp}/hubs.armed"
+[ -e "$flag" ] && [ $(( $(date +%s) - $(stat -c %Y "$flag") )) -le 2 ] && exit 0
 list=$(wlrctl toplevel list) || exit 1
 n=$(printf '%s\n' "$list" | grep -c .)
 [ "$n" -lt 2 ] && exit 0

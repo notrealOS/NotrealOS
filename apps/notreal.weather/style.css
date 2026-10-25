@@ -1,0 +1,49 @@
+/* notarealWeather: the Nothing weather layout, coloured by the active notareal theme (--nr-*) */
+.city-title { font-family: var(--nr-font-code); font-size: 12pt; letter-spacing: 3px; color: var(--nr-fg-bright); }
+
+.wx-card { background: var(--nr-surface); border-radius: 34px; }
+.square .wx-card, .square button.wx-btn { border-radius: 0; }
+.pill { border-radius: 999px; padding: 14px 22px; }
+.square .pill { border-radius: 0; }
+.pill-title { font-family: var(--nr-font-code); font-weight: 800; letter-spacing: 2px; font-size: 11pt;
+  color: var(--nr-fg-bright); }
+.pill-sub { font-family: var(--nr-font-code); letter-spacing: 2px; font-size: 10pt; color: var(--nr-fg); }
+
+.big-temp { font-family: var(--nr-font-text); font-weight: 200; font-size: 40pt; color: var(--nr-bg); }
+.disc-sub { font-family: var(--nr-font-code); letter-spacing: 2px; font-size: 9pt; color: var(--nr-bg); }
+.disc-cond { font-family: var(--nr-font-code); font-weight: 800; letter-spacing: 2px; font-size: 7pt;
+  color: alpha(var(--nr-bg), 0.7); margin-top: 4px; }
+
+separator.wx-rule { background: var(--nr-fg-bright); min-height: 1px; margin: 2px 0; opacity: 0.9; }
+
+.strip-card { padding: 16px 20px; }
+.strip-head { font-family: var(--nr-font-code); letter-spacing: 1px; font-size: 9pt; color: alpha(var(--nr-fg), 0.6); }
+.strip-head.now { color: var(--nr-fg-bright); }
+.strip-temp { font-family: var(--nr-font-code); letter-spacing: 2px; font-size: 13pt; color: var(--nr-fg-bright); }
+.strip-low { font-family: var(--nr-font-code); letter-spacing: 2px; font-size: 10pt; color: alpha(var(--nr-fg), 0.55); }
+.strip-pop { font-family: var(--nr-font-code); font-size: 8pt; color: var(--nr-orange); }
+button.day-btn { padding: 4px 10px; border-radius: 20px; }
+.square button.day-btn { border-radius: 0; }
+
+.tile { padding: 16px 20px 12px 20px; }
+.tile-title { font-family: var(--nr-font-code); letter-spacing: 2px; font-size: 9.5pt; color: var(--nr-fg-bright); }
+.tile-sub { font-family: var(--nr-font-code); font-weight: 800; letter-spacing: 1px; font-size: 9pt; color: var(--nr-fg); }
+.tile-value { font-family: var(--nr-font-text); font-weight: 300; font-size: 26pt; color: var(--nr-fg-bright); }
+.tile-unit { font-family: var(--nr-font-code); font-weight: 800; font-size: 9pt; color: var(--nr-fg); }
+button.tile-btn { padding: 0; background: none; box-shadow: none; border-radius: 34px; }
+.square button.tile-btn { border-radius: 0; }
+.tick { font-family: var(--nr-font-code); font-size: 7pt; letter-spacing: 1px; color: alpha(var(--nr-fg), 0.6); }
+.nowcast { padding: 16px 20px; }
+.row-value { font-family: var(--nr-font-code); font-size: 10pt; color: var(--nr-fg-bright); }
+.day-temp { font-family: var(--nr-font-text); font-weight: 200; font-size: 30pt; color: var(--nr-fg-bright); }
+.footer { font-family: var(--nr-font-code); font-size: 7pt; letter-spacing: 2px; color: alpha(var(--nr-fg), 0.45); }
+.status { color: alpha(var(--nr-fg), 0.7); padding: 40px; font-family: var(--nr-font-code); letter-spacing: 3px; }
+
+button.place-row { padding: 14px 20px; border-radius: 999px; background: var(--nr-surface); }
+.square button.place-row { border-radius: 0; }
+button.result-row { padding: 8px 12px; }
+button.wx-btn { font-family: var(--nr-font-code); font-weight: 800; letter-spacing: 2px; border-radius: 999px;
+  padding: 10px 20px; background: var(--nr-fg-bright); color: var(--nr-bg); }
+button.unit-btn { font-family: var(--nr-font-code); min-height: 40px; min-width: 64px; }
+frame.radar-frame { border: none; border-radius: 22px; }
+.square frame.radar-frame { border-radius: 0; }

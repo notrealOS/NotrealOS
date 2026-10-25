@@ -1,0 +1,23 @@
+#!/bin/sh
+# nrdap-cpu on|off (root, via sudoers NOPASSWD): DAP mode CPU cap.
+#   on:  big + prime cores (cpu4-7) offline, little cores capped at 1.15 GHz (music needs ~5 % of one)
+#   off: all cores online, original max frequencies back
+S=/run/nrdap-cpu
+case "$1" in
+on)
+	mkdir -p $S
+	for p in /sys/devices/system/cpu/cpufreq/policy*; do
+		[ -f $S/$(basename $p) ] || cat $p/scaling_max_freq >$S/$(basename $p)
+	done
+	for c in 4 5 6 7; do echo 0 >/sys/devices/system/cpu/cpu$c/online; done
+	echo 1152000 >/sys/devices/system/cpu/cpufreq/policy0/scaling_max_freq
+	;;
+off)
+	for c in 4 5 6 7; do echo 1 >/sys/devices/system/cpu/cpu$c/online; done
+	for f in $S/policy*; do
+		[ -f "$f" ] && cat "$f" >/sys/devices/system/cpu/cpufreq/$(basename "$f")/scaling_max_freq
+	done
+	rm -rf $S
+	;;
+*) echo "usage: nrdap-cpu on|off" >&2; exit 1 ;;
+esac

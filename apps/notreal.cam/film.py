@@ -54,7 +54,7 @@ uniform sampler2D tex;
 uniform float time;
 float hash(vec2 p) {{ p = fract(p * vec2(0.1031, 0.1030)); p += dot(p, p.yx + 33.33);
   return fract((p.x + p.y) * p.x); }}
-float bright(vec2 uv) {{ return clamp((dot(texture2D(tex, uv).rgb, vec3{LUMA}) - 0.7) / 0.3, 0.0, 1.0); }}
+float bright(vec2 uv) {{ return clamp((dot(texture2D(tex, uv).rgb, vec3{LUMA}) - 0.88) / 0.12, 0.0, 1.0); }}
 void main () {{
   vec2 uv = v_texcoord;
   vec4 s = texture2D(tex, uv);
@@ -125,7 +125,7 @@ def develop(rgb, stock, seed=None):
     # halation map from a 1/8 copy of the WHOLE sensor frame (glows reach across the crop line)
     f = 8
     small = rgb[:H // f * f, :W // f * f].reshape(H // f, f, W // f, f, 3).mean((1, 3)) / 255.0
-    b = np.clip((small @ luma - 0.7) / 0.3, 0, 1).astype(np.float32)
+    b = np.clip((small @ luma - 0.88) / 0.12, 0, 1).astype(np.float32)   # only real highlights glow (0.7 lit white walls, 10-25)
     rad = max(1, int(HALO_R * max(W, H) / f))
     for _ in range(3):
         b = _box(_box(b, rad + 1, 0), rad + 1, 1)

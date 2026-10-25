@@ -234,14 +234,23 @@ spinbutton button { min-width: 48px; min-height: 44px; }
 
 /* --- other mailboxes: own tint + a stripe on the left edge (10-11) ------------ */
 .mail-row.tint-exchange {               /* GoDaddy / Microsoft 365 — warm amber */
-  background-color: alpha(var(--nr-orange), 0.10);
+  /* tint layered over the solid row colour: a see-through row showed the swipe hints (10-24) */
+  background-color: var(--nr-bg);
+  background-image: linear-gradient(alpha(var(--nr-orange), 0.10), alpha(var(--nr-orange), 0.10));
   box-shadow: inset 4px 0 0 var(--nr-orange);
 }
 .mail-row.tint-outlook {                /* Outlook.com — ocean blue */
-  background-color: alpha(var(--nr-blue), 0.12);
+  background-color: var(--nr-bg);
+  background-image: linear-gradient(alpha(var(--nr-blue), 0.12), alpha(var(--nr-blue), 0.12));
   box-shadow: inset 4px 0 0 var(--nr-blue);
 }
-.mail-list > row:active .mail-row.tint-exchange { background: alpha(var(--nr-orange), 0.20); }
-.mail-list > row:active .mail-row.tint-outlook { background: alpha(var(--nr-blue), 0.22); }
+.mail-list > row:active .mail-row.tint-exchange {
+  background-image: linear-gradient(alpha(var(--nr-orange), 0.20), alpha(var(--nr-orange), 0.20)); }
+.mail-list > row:active .mail-row.tint-outlook {
+  background-image: linear-gradient(alpha(var(--nr-blue), 0.22), alpha(var(--nr-blue), 0.22)); }
 .from-pick button { background: none; color: var(--nr-fg); padding: 6px 4px; }
 viewswitcherbar button { min-width: 0; padding-left: 2px; padding-right: 2px; }
+
+/* 10-24 search */
+entry.mail-search { min-height: 40px; border-radius: 999px; }
+.search-status { font-size: 9pt; letter-spacing: 1px; color: alpha(var(--nr-fg), 0.6); margin: 8px 18px 4px 18px; }

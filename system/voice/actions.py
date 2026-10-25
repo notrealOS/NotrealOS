@@ -11,6 +11,7 @@ import subprocess
 import sys
 import time
 import urllib.parse
+import urllib.request
 import uuid
 
 from gi.repository import Gio, GLib
@@ -212,6 +213,33 @@ def music(method, uri=None):
                   Gio.DBusCallFlags.NONE, 3000, None)
 
 
+VIBE_WORDS = re.compile(r"\b(playlist|mix|something|vibes?|music for|songs for|tunes for)\b")
+
+
+def vibe(target):
+    """"a bass heavy workout playlist" -> "bass heavy workout"; None if it isn't a vibe request."""
+    t = target.lower().strip(" .!?")
+    if not VIBE_WORDS.search(t):
+        return None
+    t = re.sub(r"^(me |us )?(a |an |some |the |my )?", "", t)
+    t = re.sub(r"\b(playlist|mix|vibes?)\b", "", t)
+    t = re.sub(r"^something\b", "", t).strip()
+    return " ".join(t.split()) or None
+
+
+def play_vibe(query, pc_url, limit=40):
+    """AudioMuse on the PC (nrbrain /vibe) picks songs that sound like the words; the player
+    queues them. Returns the number of songs."""
+    req = urllib.request.Request(pc_url + "/vibe", data=json.dumps({"query": query, "limit": limit}).encode(),
+                                 headers={"Content-Type": "application/json"})
+    with urllib.request.urlopen(req, timeout=30) as r:
+        songs = json.loads(r.read()).get("songs", [])
+    if not songs:
+        return 0
+    music("OpenUri", "spin:queue?ids=" + ",".join(s["id"] for s in songs))
+    return len(songs)
+
+
 def play_query(q):
     music("OpenUri", "spin:play?q=" + urllib.parse.quote(q))
 
@@ -224,7 +252,7 @@ APP_WORDS = {
     "maps": "dev.notareal.Maps", "map": "dev.notareal.Maps", "navigation": "dev.notareal.Maps",
     "mail": "dev.notareal.VaporMail", "email": "dev.notareal.VaporMail", "e mail": "dev.notareal.VaporMail",
     "camera": "dev.notareal.Camera", "whatsapp": "dev.notareal.Chat", "messages": "dev.notareal.Chat",
-    "chats": "dev.notareal.Chat", "youtube": "de.schmidhuberj.tubefeeder", "reddit": "dev.notareal.Reddit",
+    "chats": "dev.notareal.Chat", "youtube": "de.schmidhuberj.tubefeeder",
     "phone": "dev.notareal.Calls", "calls": "dev.notareal.Calls", "dialer": "dev.notareal.Calls",
     "terminal": "org.gnome.Console", "console": "org.gnome.Console", "settings": "org.gnome.Settings",
     "browser": "chromium", "internet": "chromium", "firefox": "firefox-esr", "notes": "org.gnome.World.Iotas",

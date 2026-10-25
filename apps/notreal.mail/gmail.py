@@ -396,11 +396,10 @@ class Gmail:
     # reading ------------------------------------------------------------
     def list_folder(self, folder="INBOX", limit=LIST_LIMIT, since_uid=0):
         """Newest `limit` messages, newest first. Returns (uidvalidity, [msg])."""
-        folder = {"sent": "\\Sent", "spam": "\\Junk", "trash": "\\Trash"}.get(folder, folder)
-        if folder.startswith("\\"):
-            folder = self.special(folder)
+        name = {"sent": "\\Sent", "spam": "\\Junk", "trash": "\\Trash"}.get(folder, folder)
 
         def go(c):
+            folder = self.special(name) if name.startswith("\\") else name   # under the lock
             validity = self._select(c, folder, readonly=True)
             crit = "UID %d:*" % (since_uid + 1) if since_uid else "ALL"
             typ, data = c.uid("SEARCH", None, crit)
@@ -417,6 +416,26 @@ class Gmail:
 
     def list_sent(self, limit=LIST_LIMIT):
         return self._run(lambda c: self.list_folder("sent", limit))
+
+    def search(self, query, limit=50):
+        """Gmail's own search (X-GM-RAW, same syntax as the web: from:, has:attachment, ...) over
+        All Mail, newest `limit` hits first (10-24)."""
+        def go(c):
+            # special() talks to the server: only under the lock (_run), never beside a refresh
+            folder = self.special("\\All")
+            self._select(c, folder, readonly=True)
+            c.literal = query.encode()        # UTF-8 query as a literal: any language / quotes
+            typ, data = c.uid("SEARCH", "CHARSET", "UTF-8", "X-GM-RAW")
+            uids = sorted(int(u) for u in (data[0] or b"").split())[-limit:]
+            if not uids:
+                return []
+            typ, data = c.uid("FETCH", ",".join(map(str, uids)),
+                              "(UID X-GM-MSGID X-GM-THRID FLAGS INTERNALDATE RFC822.SIZE "
+                              "BODY.PEEK[HEADER.FIELDS (%s)])" % HEADER_FIELDS)
+            msgs = [_header_msg(meta, lit, folder) for meta, lit in _fetch_items(data)]
+            msgs.sort(key=lambda m: m["uid"], reverse=True)
+            return msgs
+        return self._run(go)
 
     def prefetch(self, msgs):
         """Cache bodies (<= PREFETCH_MAX) and fill in snippets. Returns the msgs touched."""

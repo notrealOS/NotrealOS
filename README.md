@@ -32,14 +32,18 @@ All apps are Python + GTK4/libadwaita, sized for a phone, with the main controls
 | [notreal.calendar](apps/notreal.calendar) | Google, Outlook and Microsoft 365 calendars via Evolution Data Server |
 | [notreal.contacts](apps/notreal.contacts) | Google contacts: call, message, WhatsApp, mail |
 | [notreal.gallery](apps/notreal.gallery) | Photos, with Google Photos backup and import |
-| [notreal.edit](apps/notreal.edit) | Crop, curves and saturation, save a copy or share |
+| [notreal.edit](apps/notreal.edit) | Crop, curves, color, blur, vignette and markup, save a copy or share |
 | [notreal.link](apps/notreal.link) | Light web viewer for links opened from chat and mail |
 | [notreal.share](apps/notreal.share) | Send files to a chat or a new mail |
-| [notreal.sound](apps/notreal.sound) | Separate media and notification volume |
+| [notreal.sound](apps/notreal.sound) | Separate media and notification volume, ring/vibrate/silent, DAC or speaker output |
 | [notreal.player](apps/notreal.player) | Navidrome music client with a spinning vinyl (or a cassette), animated covers, bit-perfect USB DAC output, offline songs |
 | [notreal.maps](apps/notreal.maps) | Google maps, places and routes with GPS and offline voice navigation |
-| [notreal.feed](apps/notreal.feed) | Reader for Reddit through a self-hosted Redlib on the PC (not affiliated with Reddit) |
 | [notreal.tube](apps/notreal.tube) | YouTube, TikTok, Instagram and Vimeo in one feed and search, no accounts, streamed by the PC (not affiliated with any of them) |
+| [notreal.weather](apps/notreal.weather) | Open-Meteo forecasts, rain radar, air quality and pollen, saved places and GPS |
+| [notreal.calc](apps/notreal.calc) | Left-handed calculator with scientific keys |
+| [notreal.clock](apps/notreal.clock) | Alarms, timer and stopwatch that ring from deep sleep |
+| [notreal.battery](apps/notreal.battery) | Where the battery went, logged in the background |
+| [notreal.system](apps/notreal.system) | Health check, battery, sound and Glyph in one app |
 
 ## The shell
 
@@ -77,10 +81,11 @@ overview widget, or run `nrtheme <name>`.
 
 ```
 apps/            the apps above
-shell/           joystick launcher, swipe keyboard, gestures, CRT screen animation, themes
-system/          voice assistant, alarms, sleep, health check, backup, haptics, Glyph
+shell/           joystick launcher, hub picker, swipe keyboard, gestures, CRT screen animation, themes
+system/          voice assistant, alarms, sleep, health check, backup, haptics, Glyph,
+                 DAP mode, battery saver, safe upgrades
 spacewar-fixes/  Nothing Phone (1) device tree, drivers, libcamera, audio, calls, sleep
-pc/              the home PC side: AI gateway, voices, Matrix bridges, music, feed proxy
+pc/              the home PC side: AI gateway, voices, Matrix bridges, music, video hub
 docs/            how it all fits together
 tools/           stage.py (copy sources in), scan.py (privacy check, also a pre-commit hook)
 ```
@@ -89,7 +94,7 @@ tools/           stage.py (copy sources in), scan.py (privacy check, also a pre-
 
 Some features run on a home PC that the phone reaches over [Tailscale](https://tailscale.com):
 the Matrix server and bridges for chat, the Navidrome music server, the local LLM and speech
-voices for the voice assistant, the Reddit proxy and nightly backups. Set your PC's address in
+voices for the voice assistant and nightly backups. Set your PC's address in
 `~/.config/notreal/pc.json`:
 
 ```json

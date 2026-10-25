@@ -155,9 +155,15 @@ class Mpris:
         inv.return_value(None)
 
     # spin:play?q=<words> (used by voiced): search the library, play the best match
+    # spin:queue?ids=<id,id,...> (voice playlists, 10-24): play exactly these songs, in this order
     def open_uri(self, uri):
         import urllib.parse
         u = urllib.parse.urlparse(uri)
+        if u.scheme == "spin" and u.path == "queue":
+            ids = [i for i in urllib.parse.parse_qs(u.query).get("ids", [""])[0].split(",") if i]
+            if ids:
+                self.queue_ids(ids)
+            return
         q = urllib.parse.parse_qs(u.query).get("q", [""])[0].strip()
         if u.scheme != "spin" or not q:
             return
@@ -207,4 +213,26 @@ class Mpris:
                     GLib.idle_add(lambda: (p.play_tracks(tracks, shuffle=shuffle), False)[1])
             except Exception as e:  # noqa: BLE001
                 print("open_uri failed:", e, flush=True)
+        threading.Thread(target=work, daemon=True).start()
+
+    def queue_ids(self, ids):
+        p = self.player
+        api = p.store.api
+        if not api:
+            return
+
+        def one(i):
+            try:
+                return api.call("getSong", id=i).get("song")
+            except Exception as e:  # noqa: BLE001 - a song gone from the library: skip it
+                print("queue: getSong", i, e, flush=True)
+                return None
+
+        def work():
+            from concurrent.futures import ThreadPoolExecutor
+            with ThreadPoolExecutor(8) as ex:
+                tracks = [t for t in ex.map(one, ids) if t]
+            print("open_uri: queue", len(ids), "ids ->", len(tracks), "tracks", flush=True)
+            if tracks:
+                GLib.idle_add(lambda: (p.play_tracks(tracks, shuffle=False), False)[1])
         threading.Thread(target=work, daemon=True).start()

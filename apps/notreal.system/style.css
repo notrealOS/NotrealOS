@@ -1,0 +1,5 @@
+/* notreal.system: the tab row (the pages bring their own apps' styles) */
+button.sys-tab { font-family: var(--nr-font-code); font-weight: 800; letter-spacing: 1px; padding: 8px 14px;
+  border-radius: 999px; background: alpha(var(--nr-fg), 0.08); }
+button.sys-tab:checked { background: var(--nr-primary); color: var(--nr-bg); }
+.square button.sys-tab { border-radius: 0; }

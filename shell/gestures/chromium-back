@@ -1,0 +1,5 @@
+#!/bin/sh
+HERE="$(dirname "$(readlink -f "$0")")"
+# Short swipe in from the left edge: Back in Chromium (its own Alt+Left), only when it is focused.
+wlrctl toplevel find app_id:chromium state:active || exit 0
+exec $HERE/uinput-combo 56 105   # Alt Left

@@ -1,0 +1,75 @@
+#!/bin/sh
+# nrdap on|off|status|toggle - DAP mode: the phone only plays music (offline) to save battery.
+#   on:  modem + Wi-Fi + Bluetooth off, background daemons and open apps stopped, CPU capped
+#        (big cores off, via the sudo helper nrdap-cpu), notreal.player opened.
+#   off: radios + daemons back exactly as they were (state in ~/.local/state/nrdap), CPU uncapped.
+# Kept running: the shell (phantomshell, widget, joystick, gestures, crtd), sleepd, alarmd,
+# the KA5 helpers, nrvolumed, callmode, crashlog, portalfix - and this terminal.
+STATE="$HOME/.local/state/nrdap"
+LOG="$HOME/dap/nrdap.log"
+AUTO="$HOME/.config/autostart"
+# autostart daemons to stop: <autostart file> <pgrep -f pattern (anchored so it can't match us)>
+DAEMONS="
+notarealchat.desktop|[c]hat/chat.py --service
+vapormaild.desktop|[v]apormaild
+voiced.desktop|[v]oice/voiced
+galleryd.desktop|[g]allery/galleryd.py
+nrbackupd.desktop|[n]rbackupd
+droid-notifyd.desktop|[d]roid-notifyd
+circled.desktop|[c]ircle/circled.py
+nrcalls.desktop|[c]alls/.*--service
+gdrive-mount.desktop|[r]clone mount
+rotated.desktop|[r]otated
+camflash.desktop|[c]amflash
+glyphd.desktop|[g]lyphd
+"
+# open apps to close (not restored: you reopen what you need)
+APPS="[c]hromium|[n]rweb.py|[n]rweather|[n]rlink|[f]irefox|[n]rcalendar|[n]rcontacts|[g]allery/gallery.py|[n]rmaps|[m]aps/maps.py|[r]eddit|[v]apormail.py|[c]hat/chat.py$|bin/[s]napshot|[c]amera/camera.py|[n]autilus|[l]ocalsearch-3"
+
+log() { echo "$(date '+%m-%d %H:%M:%S') $*" >>"$LOG"; }
+
+dap_on() {
+	[ -f "$STATE/on" ] && { echo "DAP mode is already on"; return; }
+	mkdir -p "$STATE"; : >"$STATE/daemons"
+	log "ON  $(cat /sys/class/power_supply/qcom-battmgr-bat/capacity)% $(cat /sys/class/power_supply/qcom-battmgr-bat/current_now) uA"
+	nmcli -t radio wifi >"$STATE/wifi"; nmcli -t radio wwan >"$STATE/wwan"
+	bluetoothctl show | grep -q "Powered: yes" && echo on >"$STATE/bt" || echo off >"$STATE/bt"
+	echo "$DAEMONS" | while IFS='|' read -r desk pat; do
+		[ -n "$desk" ] || continue
+		if pgrep -f "$pat" >/dev/null; then
+			echo "$desk" >>"$STATE/daemons"
+			pkill -f "$pat"
+		fi
+	done
+	pkill -f "[s]sccli --sensor accelerometer"          # rotated's sensor reader
+	pkill -f "$APPS"
+	nmcli radio wwan off; nmcli radio wifi off
+	bluetoothctl power off >/dev/null 2>&1
+	sudo -n /usr/local/bin/nrdap-cpu on 2>/dev/null || log "nrdap-cpu not installed: CPU not capped"
+	touch "$STATE/on"
+	gtk-launch dev.notareal.Player >/dev/null 2>&1 &
+	notify-send -a "DAP mode" "DAP mode on" "Music only: radios off, background stopped." 2>/dev/null
+	log "ON  done: $(tr '\n' ' ' <"$STATE/daemons")"
+}
+
+dap_off() {
+	[ -f "$STATE/on" ] || { echo "DAP mode is already off"; return; }
+	sudo -n /usr/local/bin/nrdap-cpu off 2>/dev/null
+	[ "$(cat "$STATE/wifi")" = enabled ] && nmcli radio wifi on
+	[ "$(cat "$STATE/wwan")" = enabled ] && nmcli radio wwan on
+	[ "$(cat "$STATE/bt")" = on ] && bluetoothctl power on >/dev/null 2>&1
+	while read -r desk; do
+		[ -n "$desk" ] && (cd "$HOME" && setsid gio launch "$AUTO/$desk" >/dev/null 2>&1 &)
+	done <"$STATE/daemons"
+	rm -f "$STATE/on"
+	notify-send -a "DAP mode" "DAP mode off" "Radios and background services are back." 2>/dev/null
+	log "OFF $(cat /sys/class/power_supply/qcom-battmgr-bat/capacity)%"
+}
+
+case "$1" in
+	on) dap_on ;;
+	off) dap_off ;;
+	toggle) if [ -f "$STATE/on" ]; then dap_off; else dap_on; fi ;;
+	status|"") [ -f "$STATE/on" ] && echo on || echo off ;;
+	*) echo "usage: nrdap on|off|toggle|status" >&2; exit 1 ;;
+esac

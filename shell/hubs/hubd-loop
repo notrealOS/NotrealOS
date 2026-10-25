@@ -1,0 +1,14 @@
+#!/bin/sh
+HERE="$(dirname "$(readlink -f "$0")")"
+# Keeps hubd running (autostart). A loop from a previous login is replaced.
+PIDF="$HOME/.cache/hubd-loop.pid"
+old=$(cat "$PIDF" 2>/dev/null)
+if [ -n "$old" ] && [ "$old" != $$ ] && grep -q hubd-loop "/proc/$old/cmdline" 2>/dev/null; then
+	pkill -P "$old" 2>/dev/null; kill "$old" 2>/dev/null
+fi
+for p in $(pgrep -f "^python3 $HERE/hubd.py"); do kill "$p"; done
+echo $$ > "$PIDF"
+while :; do
+	$HERE/hubd >> "${XDG_RUNTIME_DIR:-/tmp}/hubd.log" 2>&1
+	sleep 2
+done

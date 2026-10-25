@@ -1,0 +1,2 @@
+#!/bin/sh
+exec env -u LD_PRELOAD python3 "$(dirname "$(readlink -f "$0")")"/nrsystem.py "$@" >>"${XDG_RUNTIME_DIR:-/tmp}/nrsystem.log" 2>&1
