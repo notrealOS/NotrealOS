@@ -47,13 +47,13 @@ All apps are Python + GTK4/libadwaita, sized for a phone, with the main controls
 
 ## The shell
 
-The Phosh app grid is replaced by a **joystick**: hold it and your most-used apps fan out under
+The Phosh app grid is replaced by a **joystick launcher** (closed source, not in this repo): hold it and your most-used apps fan out under
 your thumb. Above it, a **widget** shows weather, battery and RAM, the phone's health, what's
 playing and your agenda. Swipe up from the left edge for **search, reminders and notes**:
 reminders wake the phone from sleep and are read aloud. Hold volume up to just say it instead.
 
 <p>
-<img src="docs/screenshots/real-overview-joystick.png" width="200" alt="Joystick launcher">
+<img src="docs/screenshots/real-overview-joystick.png" width="200" alt="Joystick launcher (closed source)">
 <img src="docs/screenshots/real-search-reminders.png" width="200" alt="Search, reminders and notes">
 <img src="docs/screenshots/real-camera.png" width="200" alt="notreal.cam">
 </p>
@@ -81,7 +81,7 @@ overview widget, or run `nrtheme <name>`.
 
 ```
 apps/            the apps above
-shell/           joystick launcher, hub picker, swipe keyboard, gestures, CRT screen animation, themes
+shell/           hub picker, swipe keyboard, gestures, CRT screen animation, themes
 system/          voice assistant, alarms, sleep, health check, backup, haptics, Glyph,
                  DAP mode, battery saver, safe upgrades
 spacewar-fixes/  Nothing Phone (1) device tree, drivers, libcamera, audio, calls, sleep

@@ -19,7 +19,7 @@ APPS = {
     "maps": "apps/notreal.maps", "tube": "apps/notreal.tube", "weather": "apps/notreal.weather",
     "calc": "apps/notreal.calc", "clock": "apps/notreal.clock", "battery": "apps/notreal.battery", "hub": "apps/notreal.system",
     "theme": "shell/theme",
-    ".local/share/phantomshell": "shell/phantomshell", "arc": "shell/joystick", "swipe": "shell/keyboard",
+    ".local/share/phantomshell": "shell/phantomshell", "swipe": "shell/keyboard",
     "gestures": "shell/gestures", "crt": "shell/crt", "overview-widget": "shell/overview-widget",
     "rotated": "shell/rotated", "hubs": "shell/hubs", "shadewatch": "shell/shadewatch", "circle": "shell/circle",
     "voice": "system/voice", "alarm": "system/alarm", "sleepd": "system/sleepd", "doctor": "system/doctor",

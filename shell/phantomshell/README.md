@@ -42,4 +42,4 @@ also read and edit them there. Without Iotas they're kept in a JSON file.
 ## D-Bus
 
 `org.notarealinux.PhantomShell` on the session bus: `Summon()`, `Dismiss()`, `Toggle()`,
-`ShowApps()` (the joystick's ALL slot), `Open(query)`, signal `SummonedChanged(b)`.
+`ShowApps()` (the launcher's ALL slot), `Open(query)`, signal `SummonedChanged(b)`.

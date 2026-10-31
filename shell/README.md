@@ -1,7 +1,7 @@
 # Shell
 
 <p>
-<img src="../docs/screenshots/real-overview-joystick.png" width="240" alt="Overview with the joystick">
+<img src="../docs/screenshots/real-overview-joystick.png" width="240" alt="Overview with the launcher">
 <img src="../docs/screenshots/real-search-reminders.png" width="240" alt="Search with reminders and notes">
 <img src="../docs/screenshots/real-overview-ram.png" width="240" alt="Overview widget RAM view">
 </p>
@@ -13,14 +13,13 @@ The code expects to live in your home folder under its original short name (see 
 copy or symlink each folder there:
 
 ```sh
-ln -s ~/notrealOS/shell/joystick ~/arc     # and so on, per the table
+ln -s ~/notrealOS/shell/phantomshell ~/.local/share/phantomshell     # and so on, per the table
 ```
 
 | Repo folder | Install as | What it is |
 | --- | --- | --- |
 | [`phantomshell/`](phantomshell) | `~/.local/share/phantomshell` | **notarealShell**: the wallpaper layer and the SEARCH pop-up with **reminders** and **notes** ([details](phantomshell/README.md)) |
 | [`overview-widget/`](overview-widget) | `~/overview-widget` | The widget over the Phosh overview: weather, theme picker, RAM, health face, now playing, agenda ([details](overview-widget/README.md)) |
-| [`joystick/`](joystick) | `~/arc` | The **joystick launcher** that replaces the app grid: hold it and your most-used apps fan out under your thumb ([details](joystick/README.md)) |
 | [`keyboard/`](keyboard) | `~/swipe` | Swipe keyboard (glide typing) with suggestions, user words, emoji, 🎤 voice typing via whisper, and 📋 **clipboard history** (your last 6 copies, tap to paste; kept in memory only, password-manager secrets skipped). `swipe-im.c` is the Wayland input-method helper |
 | [`gestures/`](gestures) | `~/gestures` | Bottom-edge swipe to switch apps; three-finger swipe down quits a Moonlight stream |
 | [`crt/`](crt) | `~/crt` | CRT power-off/on animation when the screen sleeps and wakes; double-press power opens notreal.cam |

@@ -19,7 +19,7 @@ A tappable panel at the top of the Phosh overview (the screen with your open app
 - **Now playing**: title and prev / play / next for any media player (MPRIS)
 - **Agenda**: today's events, then your reminders; tap to open the [search pop-up](../phantomshell)
 
-It also shows and hides the [joystick](../joystick) with the overview.
+It also shows and hides the joystick launcher (a separate, closed-source component) with the overview.
 
 ## How it knows the overview is open
 
